@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Công Cụ Tách Nền & Chỉnh Sửa Local</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script type="module">
+        import removeBackground from "https://esm.sh/@imgly/background-removal@1.4.3";
+        window.imglyRemoveBackground = removeBackground;
+    </script>
+
+    <style>
+        /* CSS cho canvas để hiển thị nền caro mặc định (khi chưa chọn màu nền) */
+        .transparent-bg {
+            background-image: 
+                linear-gradient(45deg, #ccc 25%, transparent 25%), 
+                linear-gradient(135deg, #ccc 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #ccc 75%),
+                linear-gradient(135deg, transparent 75%, #ccc 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 0, 10px -10px, 0px 10px;
+            background-color: #fff;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-gray-800">
+
+    <div class="max-w-6xl mx-auto py-10 px-5">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-blue-600 mb-2">Trình Xóa Phông Nền AI (Local)</h1>
+            <p class="text-gray-500">Mô hình AI SOTA, chạy 100% trên trình duyệt, bảo mật dữ liệu tuyệt đối.</p>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 flex flex-wrap gap-6 items-center justify-between">
+            
+            <div class="flex items-center gap-3">
+                <label class="bg-blue-50 text-blue-600 px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-100 font-medium transition shrink-0">
+                    Tải ảnh lên
+                    <input type="file" id="imageInput" accept="image/*" class="hidden">
+                </label>
+                <button id="btnRemoveBg" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed shrink-0" disabled>
+                    ✨ Tách Nền Tự Động
+                </button>
+            </div>
+
+            <div class="flex items-center gap-4 border-l pl-4 border-gray-200">
+                <span class="text-sm font-medium text-gray-600">Cọ vẽ:</span>
+                <label class="flex items-center gap-1 cursor-pointer text-sm">
+                    <input type="radio" name="brushMode" value="erase" checked class="accent-blue-600"> Xóa đi
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer text-sm">
+                    <input type="radio" name="brushMode" value="restore" class="accent-blue-600"> Phục hồi
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer text-sm">
+                    <input type="radio" name="brushMode" value="floodErase" class="accent-blue-600"> Xóa vùng tương tự
+                </label>
+                
+                <div class="flex items-center gap-2 ml-2">
+                    <input type="range" id="brushSize" min="5" max="150" value="30" class="w-24 accent-blue-600">
+                    <span id="brushSizeVal" class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600 font-mono">30px</span>
+                </div>
+
+                <div class="flex items-center gap-2 ml-2">
+                    <input type="range" id="thresholdInput" min="0" max="100" value="20" class="w-24 accent-blue-600">
+                    <span id="thresholdVal" class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600 font-mono">20%</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 border-l pl-4 border-gray-200">
+                <span class="text-sm font-medium text-gray-600">Màu nền:</span>
+                <div class="flex items-center gap-2 bg-gray-50 p-1.5 rounded-lg border border-gray-200">
+                    <input type="color" id="bgColorInput" value="#ffffff" class="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent" disabled>
+                    <label class="flex items-center gap-1 text-xs cursor-pointer text-gray-600">
+                        <input type="checkbox" id="enableBgColor" class="accent-blue-600"> Áp dụng
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4 border-l pl-4 border-gray-200 ml-auto">
+                <label class="flex items-center gap-1.5 text-sm font-medium text-gray-600 cursor-pointer">
+                    <input type="checkbox" id="mergeBgOnExport" checked class="accent-green-600 w-4 h-4 rounded">
+                    Gộp nền khi xuất
+                </label>
+                <button id="btnDownload" class="bg-green-500 text-white px-5 py-2 rounded-lg hover:bg-green-600 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1" disabled>
+                    💾 Tải ảnh xuống
+                </button>
+            </div>
+        </div>
+
+        <div id="canvasContainer" class="relative bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex justify-center items-center min-h-[500px]">
+            <div id="loading" class="absolute inset-0 bg-white/80 z-20 flex flex-col items-center justify-center hidden">
+                <div class="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-3"></div>
+                <p class="text-blue-600 font-medium" id="loadingText">Đang xử lý ảnh cục bộ...</p>
+                <p class="text-xs text-gray-400 mt-1">(Lần đầu tiên có thể mất vài chục giây để tải Model)</p>
+            </div>
+            
+            <div class="relative hidden my-4" id="canvasWrapper">
+                <canvas id="mainCanvas" class="transparent-bg max-w-full h-auto block shadow-md"></canvas>
+                <canvas id="overlayCanvas" class="absolute top-0 left-0 max-w-full h-auto pointer-events-none z-10"></canvas>
+            </div>
+
+            <p id="placeholder" class="text-gray-400">Vui lòng tải một bức ảnh lên để bắt đầu.</p>
+        </div>
+    </div>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const btnRemoveBg = document.getElementById('btnRemoveBg');
+        const btnDownload = document.getElementById('btnDownload');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        const mainCanvas = document.getElementById('mainCanvas');
+        const overlayCanvas = document.getElementById('overlayCanvas');
+        
+        const ctx = mainCanvas.getContext('2d', { willReadFrequently: true });
+        const ctxOverlay = overlayCanvas.getContext('2d');
+        
+        const loading = document.getElementById('loading');
+        const loadingText = document.getElementById('loadingText');
+        const placeholder = document.getElementById('placeholder');
+        const brushSizeInput = document.getElementById('brushSize');
+        const brushSizeVal = document.getElementById('brushSizeVal');
+        const thresholdInput = document.getElementById('thresholdInput');
+        const thresholdVal = document.getElementById('thresholdVal');
+        
+        // Các thành phần điều khiển Màu Nền mới
+        const bgColorInput = document.getElementById('bgColorInput');
+        const enableBgColor = document.getElementById('enableBgColor');
+        const mergeBgOnExport = document.getElementById('mergeBgOnExport');
+        
+        let originalImage = null;   // Lưu trữ ảnh gốc chưa tách để phục hồi bằng cọ
+        let isolatedImage = null;   // Lưu trữ ảnh đã tách nền (chỉ có nhân vật) để vẽ lại khi đổi màu nền
+        let currentFile = null;
+        let isDrawing = false;
+        let lastMousePos = null;
+
+        // Cập nhật số hiển thị kích thước cọ
+        brushSizeInput.addEventListener('input', (e) => {
+            brushSizeVal.innerText = e.target.value + 'px';
+            if(lastMousePos) drawBrushPreview(lastMousePos.x, lastMousePos.y);
+        });
+
+        thresholdInput.addEventListener('input', (e) => {
+            thresholdVal.innerText = e.target.value + '%';
+            if(lastMousePos) drawBrushPreview(lastMousePos.x, lastMousePos.y);
+        });
+
+        // Kích hoạt / Vô hiệu hóa ô chọn màu nền
+        enableBgColor.addEventListener('change', () => {
+            bgColorInput.disabled = !enableBgColor.checked;
+            redrawCanvas();
+        });
+
+        // Thay đổi màu sắc nền trực tiếp
+        bgColorInput.addEventListener('input', () => {
+            if (enableBgColor.checked) {
+                redrawCanvas();
+            }
+        });
+
+        // 1. Tải ảnh lên và hiển thị lên Canvas
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            currentFile = file;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    mainCanvas.width = img.width;
+                    mainCanvas.height = img.height;
+                    overlayCanvas.width = img.width;
+                    overlayCanvas.height = img.height;
+                    
+                    ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+                    ctx.drawImage(img, 0, 0);
+                    
+                    originalImage = img;
+                    isolatedImage = null; // Reset ảnh đã tách nền cũ
+                    enableBgColor.checked = false;
+                    bgColorInput.disabled = true;
+                    
+                    canvasWrapper.classList.remove('hidden');
+                    placeholder.classList.add('hidden');
+                    btnRemoveBg.disabled = false;
+                    btnDownload.disabled = false;
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 2. Chức năng tách nền sử dụng AI (Chạy Local)
+        btnRemoveBg.addEventListener('click', async () => {
+            if (!currentFile) return;
+            
+            loading.classList.remove('hidden');
+            loadingText.innerText = "Đang chuẩn bị mô hình AI...";
+            btnRemoveBg.disabled = true;
+
+            if (typeof window.imglyRemoveBackground !== 'function') {
+                alert("Hệ thống đang nạp thư viện AI từ mạng, vui lòng đợi vài giây và bấm lại!");
+                loading.classList.add('hidden');
+                btnRemoveBg.disabled = false;
+                return;
+            }
+
+            try {
+                const config = {
+                    publicPath: "https://unpkg.com/@imgly/background-removal-data@1.4.3/dist/",
+                    progress: (key, current, total) => {
+                        if(total) {
+                            const percent = Math.round((current / total) * 100);
+                            loadingText.innerText = `Đang tải Model: ${percent}%...`;
+                        }
+                    }
+                };
+
+                const imageBlob = await window.imglyRemoveBackground(currentFile, config);
+                const url = URL.createObjectURL(imageBlob);
+                const resultImg = new Image();
+                
+                resultImg.onload = () => {
+                    // Lưu lại ảnh nhân vật đã cô lập
+                    isolatedImage = resultImg;
+                    
+                    // Vẽ lại canvas
+                    redrawCanvas();
+                    URL.revokeObjectURL(url);
+                    
+                    loading.classList.add('hidden');
+                    btnRemoveBg.disabled = false;
+                };
+                resultImg.src = url;
+
+            } catch (error) {
+                console.error(error);
+                alert("Có lỗi xảy ra: " + error.message);
+                loading.classList.add('hidden');
+                btnRemoveBg.disabled = false;
+            }
+        });
+
+        // Hàm vẽ lại toàn bộ Canvas (Dùng khi đổi màu nền hoặc sau khi AI chạy xong)
+        function redrawCanvas() {
+            ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+            
+            // Bước A: Vẽ màu nền đặc (Solid Color) nếu người dùng kích hoạt
+            if (enableBgColor.checked) {
+                ctx.fillStyle = bgColorInput.value;
+                ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
+            }
+
+            // Bước B: Vẽ đè ảnh nhân vật đã tách lên trên
+            if (isolatedImage) {
+                ctx.drawImage(isolatedImage, 0, 0);
+            } else if (originalImage) {
+                // Nếu chưa tách nền bằng AI thì vẽ ảnh gốc ban đầu
+                ctx.drawImage(originalImage, 0, 0);
+            }
+        }
+
+        // 3. Xử lý tọa độ chuột chính xác dựa trên tỷ lệ hiển thị thực tế
+        function getMousePos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (evt.clientX - rect.left) * scaleX,
+                y: (evt.clientY - rect.top) * scaleY
+            };
+        }
+
+        function ensureEditableCanvas() {
+            if (isolatedImage instanceof HTMLCanvasElement) {
+                return isolatedImage;
+            }
+
+            if (isolatedImage instanceof HTMLImageElement) {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = mainCanvas.width;
+                tempCanvas.height = mainCanvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(isolatedImage, 0, 0, tempCanvas.width, tempCanvas.height);
+                isolatedImage = tempCanvas;
+                return isolatedImage;
+            }
+
+            if (originalImage) {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = mainCanvas.width;
+                tempCanvas.height = mainCanvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(originalImage, 0, 0, tempCanvas.width, tempCanvas.height);
+                isolatedImage = tempCanvas;
+                return isolatedImage;
+            }
+
+            return null;
+        }
+
+        function previewFloodSelection(x, y) {
+            const editableCanvas = ensureEditableCanvas();
+            if (!editableCanvas) return;
+
+            const editableCtx = editableCanvas.getContext('2d', { willReadFrequently: true });
+            const imageData = editableCtx.getImageData(0, 0, editableCanvas.width, editableCanvas.height);
+            const data = imageData.data;
+            const width = editableCanvas.width;
+            const height = editableCanvas.height;
+            const tolerance = parseInt(thresholdInput.value) * 2.55;
+            const startX = Math.max(0, Math.min(width - 1, Math.floor(x)));
+            const startY = Math.max(0, Math.min(height - 1, Math.floor(y)));
+            const startIndex = (startY * width + startX) * 4;
+            const stack = [[startX, startY]];
+            const visited = new Uint8Array(width * height);
+            const maskData = new ImageData(width, height);
+
+            if (startIndex < 0 || startIndex >= data.length) {
+                ctxOverlay.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+                return;
+            }
+
+            const startR = data[startIndex];
+            const startG = data[startIndex + 1];
+            const startB = data[startIndex + 2];
+            const startA = data[startIndex + 3];
+
+            while (stack.length) {
+                const [cx, cy] = stack.pop();
+                const idx = (cy * width + cx) * 4;
+
+                if (cx < 0 || cx >= width || cy < 0 || cy >= height || visited[cy * width + cx]) continue;
+                visited[cy * width + cx] = 1;
+
+                const r = data[idx];
+                const g = data[idx + 1];
+                const b = data[idx + 2];
+                const a = data[idx + 3];
+
+                const distance = Math.sqrt((r - startR) ** 2 + (g - startG) ** 2 + (b - startB) ** 2);
+                if (a > 0 && startA > 0 && distance <= tolerance) {
+                    maskData.data[idx] = 239;
+                    maskData.data[idx + 1] = 68;
+                    maskData.data[idx + 2] = 68;
+                    maskData.data[idx + 3] = 120;
+
+                    stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+                }
+            }
+
+            ctxOverlay.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            ctxOverlay.putImageData(maskData, 0, 0);
+        }
+
+        // 4. Hàm vẽ vòng tròn xem trước (Brush Preview) trên Canvas phụ
+        function drawBrushPreview(x, y) {
+            ctxOverlay.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            const brushSize = parseInt(brushSizeInput.value);
+            const brushMode = document.querySelector('input[name="brushMode"]:checked').value;
+
+            if (brushMode === 'floodErase') {
+                previewFloodSelection(x, y);
+                return;
+            }
+
+            ctxOverlay.beginPath();
+            ctxOverlay.arc(x, y, brushSize, 0, Math.PI * 2);
+            
+            if (brushMode === 'erase') {
+                ctxOverlay.strokeStyle = 'rgba(239, 68, 68, 0.8)'; // Viền Đỏ khi xóa
+                ctxOverlay.fillStyle = 'rgba(239, 68, 68, 0.15)';
+            } else {
+                ctxOverlay.strokeStyle = 'rgba(59, 130, 246, 0.8)'; // Viền Xanh khi phục hồi
+                ctxOverlay.fillStyle = 'rgba(59, 130, 246, 0.15)';
+            }
+            
+            ctxOverlay.lineWidth = Math.max(2, brushSize / 20);
+            ctxOverlay.fill();
+            ctxOverlay.stroke();
+        }
+
+        function applyFloodErase(pos) {
+            const editableCanvas = ensureEditableCanvas();
+            if (!editableCanvas) return false;
+
+            const editableCtx = editableCanvas.getContext('2d', { willReadFrequently: true });
+            const imageData = editableCtx.getImageData(0, 0, editableCanvas.width, editableCanvas.height);
+            const data = imageData.data;
+            const width = editableCanvas.width;
+            const height = editableCanvas.height;
+            const tolerance = parseInt(thresholdInput.value) * 2.55;
+            const startX = Math.max(0, Math.min(width - 1, Math.floor(pos.x)));
+            const startY = Math.max(0, Math.min(height - 1, Math.floor(pos.y)));
+            const startIndex = (startY * width + startX) * 4;
+            const stack = [[startX, startY]];
+            const visited = new Uint8Array(width * height);
+
+            if (startIndex < 0 || startIndex >= data.length) return false;
+
+            const startR = data[startIndex];
+            const startG = data[startIndex + 1];
+            const startB = data[startIndex + 2];
+            const startA = data[startIndex + 3];
+
+            while (stack.length) {
+                const [cx, cy] = stack.pop();
+                const idx = (cy * width + cx) * 4;
+
+                if (cx < 0 || cx >= width || cy < 0 || cy >= height || visited[cy * width + cx]) continue;
+                visited[cy * width + cx] = 1;
+
+                const r = data[idx];
+                const g = data[idx + 1];
+                const b = data[idx + 2];
+                const a = data[idx + 3];
+
+                const distance = Math.sqrt((r - startR) ** 2 + (g - startG) ** 2 + (b - startB) ** 2);
+                if (a > 0 && startA > 0 && distance <= tolerance) {
+                    data[idx + 3] = 0;
+                    stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+                }
+            }
+
+            editableCtx.putImageData(imageData, 0, 0);
+            redrawCanvas();
+            return true;
+        }
+
+        // 5. Logic Tô và Xóa thực tế trên Canvas chính
+        function executeDrawing(pos) {
+            const brushMode = document.querySelector('input[name="brushMode"]:checked').value;
+            const brushSize = parseInt(brushSizeInput.value);
+
+            if (brushMode === 'floodErase') {
+                applyFloodErase(pos);
+                return;
+            }
+
+            // Khi tô/xóa, chúng ta luôn tác động trực tiếp lên lớp ảnh "isolatedImage" 
+            // để trạng thái chỉnh sửa thủ công không bị mất khi đổi màu nền liên tục.
+            if (!isolatedImage && originalImage) {
+                // Tạo một bản chụp độc lập nếu chưa bấm nút AI tách nền tự động
+                isolatedImage = document.createElement('canvas');
+                isolatedImage.width = mainCanvas.width;
+                isolatedImage.height = mainCanvas.height;
+                isolatedImage.getContext('2d').drawImage(originalImage, 0, 0);
+            }
+
+            const isoCtx = (isolatedImage instanceof HTMLCanvasElement) ? isolatedImage.getContext('2d') : null;
+
+            if (brushMode === 'erase') {
+                // Xóa trên Canvas chính hiển thị
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, brushSize, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalCompositeOperation = 'source-over'; 
+
+                // Đồng bộ xóa vào lớp ảnh lưu trữ kiêm trong suốt
+                if (isoCtx) {
+                    isoCtx.globalCompositeOperation = 'destination-out';
+                    isoCtx.beginPath();
+                    isoCtx.arc(pos.x, pos.y, brushSize, 0, Math.PI * 2);
+                    isoCtx.fill();
+                    isoCtx.globalCompositeOperation = 'source-over';
+                } else if (isolatedImage instanceof HTMLImageElement) {
+                    // Nếu isolatedImage đang là Image object từ AI, chuyển nó thành Canvas để sửa đổi
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = mainCanvas.width;
+                    tempCanvas.height = mainCanvas.height;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.drawImage(isolatedImage, 0, 0);
+                    
+                    tempCtx.globalCompositeOperation = 'destination-out';
+                    tempCtx.beginPath();
+                    tempCtx.arc(pos.x, pos.y, brushSize, 0, Math.PI * 2);
+                    tempCtx.fill();
+                    
+                    isolatedImage = tempCanvas;
+                }
+            } else if (brushMode === 'restore' && originalImage) {
+                // Hàm khôi phục vùng ảnh từ ảnh gốc gốc
+                const restoreRegion = (targetCtx) => {
+                    targetCtx.save();
+                    targetCtx.beginPath();
+                    targetCtx.arc(pos.x, pos.y, brushSize, 0, Math.PI * 2);
+                    targetCtx.clip();
+                    targetCtx.drawImage(originalImage, 0, 0, mainCanvas.width, mainCanvas.height);
+                    targetCtx.restore();
+                };
+
+                if (isolatedImage instanceof HTMLImageElement) {
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = mainCanvas.width;
+                    tempCanvas.height = mainCanvas.height;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.drawImage(isolatedImage, 0, 0);
+                    isolatedImage = tempCanvas;
+                }
+
+                if (isolatedImage instanceof HTMLCanvasElement) {
+                    restoreRegion(isolatedImage.getContext('2d'));
+                }
+                
+                // Vẽ lại giao diện tổng thể sau khi cập nhật bộ nhớ đệm phục hồi
+                redrawCanvas();
+            }
+        }
+
+        // Đính kèm sự kiện chuột vào Canvas chính
+        mainCanvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            const pos = getMousePos(mainCanvas, e);
+            executeDrawing(pos);
+        });
+
+        mainCanvas.addEventListener('mousemove', (e) => {
+            const pos = getMousePos(mainCanvas, e);
+            lastMousePos = pos;
+            
+            drawBrushPreview(pos.x, pos.y);
+            if (isDrawing) {
+                executeDrawing(pos);
+            }
+        });
+
+        mainCanvas.addEventListener('mouseup', () => isDrawing = false);
+        mainCanvas.addEventListener('mouseleave', () => {
+            isDrawing = false;
+            lastMousePos = null;
+            ctxOverlay.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        });
+
+        // 6. Tải ảnh xuống kèm theo Logic kiểm tra Tùy chọn Merge Nền
+        btnDownload.addEventListener('click', () => {
+            let exportCanvas = mainCanvas;
+
+            // Nếu người dùng KHÔNG muốn gộp màu nền vào ảnh xuất (muốn ảnh trong suốt)
+            if (!mergeBgOnExport.checked) {
+                // Tạo một canvas tạm thời chỉ vẽ phần nhân vật đã xử lý
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = mainCanvas.width;
+                tempCanvas.height = mainCanvas.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                if (isolatedImage) {
+                    tempCtx.drawImage(isolatedImage, 0, 0);
+                } else if (originalImage) {
+                    tempCtx.drawImage(originalImage, 0, 0);
+                }
+                exportCanvas = tempCanvas;
+            }
+
+            // Tiến hành tải file
+            const link = document.createElement('a');
+            link.download = mergeBgOnExport.checked && enableBgColor.checked ? 'anh-nen-solid.png' : 'anh-trong-suot.png';
+            link.href = exportCanvas.toDataURL('image/png');
+            link.click();
+        });
+    </script>
+</body>
+</html>
