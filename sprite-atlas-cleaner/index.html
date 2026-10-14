@@ -1,0 +1,1812 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Sprite Atlas Cleaner v1.2.1</title>
+<style>
+  :root{
+    --bg:#17191d; --panel:#23262c; --panel2:#2b2f36; --line:#3b4049;
+    --text:#edf1f7; --muted:#9ca6b5; --accent:#66d9ef; --good:#74d680;
+    --warn:#ffd166; --danger:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.35 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  button,input,select{font:inherit}
+  button{
+    background:var(--panel2); color:var(--text); border:1px solid var(--line);
+    border-radius:8px; padding:8px 11px; cursor:pointer
+  }
+  button:hover{border-color:#5a6270}
+  button.primary{background:#2d7b91;border-color:#3e9eb7}
+  button.danger{background:#6f2d35;border-color:#93434e}
+  button:disabled{opacity:.45;cursor:not-allowed}
+
+
+  .previewOverlay{
+    position:fixed;inset:0;z-index:1100;background:rgba(8,10,13,.78);
+    display:none;align-items:center;justify-content:center;padding:18px
+  }
+  .previewOverlay.open{display:flex}
+  .previewPanel{
+    width:min(1180px,96vw);height:min(900px,92vh);display:grid;
+    grid-template-rows:auto 1fr auto;background:#20242a;border:1px solid #454c57;
+    border-radius:14px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.48)
+  }
+  .previewHeader,.previewFooter{
+    display:flex;align-items:center;gap:10px;padding:11px 13px;background:#1d2025
+  }
+  .previewHeader{border-bottom:1px solid var(--line)}
+  .previewFooter{border-top:1px solid var(--line);color:var(--muted);flex-wrap:wrap}
+  .previewHeader h2{margin:0;font-size:17px}
+  .previewMain{min-height:0;display:grid;grid-template-columns:1fr 260px}
+  .previewStageWrap{
+    position:relative;min-width:0;min-height:0;background:#101216;overflow:hidden
+  }
+  #previewCanvas{
+    width:100%;height:100%;display:block;touch-action:none;
+    background-color:#111317;
+    background-image:
+      linear-gradient(45deg,#1b1e23 25%,transparent 25%),
+      linear-gradient(-45deg,#1b1e23 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#1b1e23 75%),
+      linear-gradient(-45deg,transparent 75%,#1b1e23 75%);
+    background-size:24px 24px;
+    background-position:0 0,0 12px,12px -12px,-12px 0;
+  }
+  .previewSide{
+    border-left:1px solid var(--line);padding:12px;background:#23262c;overflow:auto
+  }
+  .previewInfo{
+    display:grid;grid-template-columns:1fr auto;gap:7px 10px;
+    padding:9px 0;border-bottom:1px solid var(--line)
+  }
+  .previewInfo span:nth-child(odd){color:var(--muted)}
+  .previewHover{
+    margin-top:12px;padding:10px;border:1px solid var(--line);border-radius:8px;
+    background:#181b20;min-height:72px;color:#b7c0cd
+  }
+  .previewToolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .previewToolbar .check{color:#c5ceda}
+  @media (max-width:850px){
+    .previewMain{grid-template-columns:1fr}
+    .previewSide{display:none}
+  }
+
+  .helpOverlay{
+    position:fixed;inset:0;z-index:1000;background:rgba(8,10,13,.72);
+    display:none;align-items:center;justify-content:center;padding:24px
+  }
+  .helpOverlay.open{display:flex}
+  .helpPanel{
+    width:min(980px,94vw);max-height:90vh;overflow:auto;background:#20242a;
+    border:1px solid #454c57;border-radius:14px;box-shadow:0 18px 60px rgba(0,0,0,.45)
+  }
+  .helpHeader{
+    position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;
+    padding:14px 16px;background:#20242af2;border-bottom:1px solid var(--line);
+    backdrop-filter:blur(8px)
+  }
+  .helpHeader h2{margin:0;font-size:18px}
+  .helpBody{padding:16px}
+  .helpGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .helpCard{
+    background:#181b20;border:1px solid var(--line);border-radius:10px;padding:12px
+  }
+  .helpCard h3{margin:0 0 8px;font-size:13px;color:#dfe6ef}
+  .helpCard p{margin:6px 0;color:#b7c0cd}
+  .helpCard ul{margin:7px 0 0;padding-left:18px;color:#b7c0cd}
+  .helpCard li{margin:5px 0}
+  .helpFlow{
+    margin-top:14px;background:#14171b;border:1px solid var(--line);border-radius:10px;
+    padding:12px;color:#cbd3df
+  }
+  .helpFlow code{color:#8fe4f7}
+  @media (max-width:1050px){
+    main{grid-template-columns:200px minmax(0,1fr) 220px}
+    main.leftCollapsed{grid-template-columns:0 minmax(0,1fr) 220px}
+    main.rightCollapsed{grid-template-columns:200px minmax(0,1fr) 0}
+  }
+  @media (max-width:820px){
+    main{grid-template-columns:minmax(0,1fr) 220px}
+    .leftSidebar{display:none}
+    .stageWrap{grid-column:1}
+    .rightSidebar{grid-column:2}
+    #toggleLeftBtn{display:none}
+  }
+  @media (max-width:760px){.helpGrid{grid-template-columns:1fr}}
+  .app{height:100%;display:grid;grid-template-rows:auto 1fr auto}
+  header{
+    display:flex;align-items:center;gap:10px;padding:10px 12px;
+    border-bottom:1px solid var(--line);background:#1d2025;flex-wrap:wrap
+  }
+  header .title{font-weight:800;font-size:16px;margin-right:8px}
+  .toolbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+  .spacer{flex:1}
+  .pill{border:1px solid var(--line);border-radius:999px;padding:5px 9px;color:var(--muted)}
+  main{
+    min-height:0;
+    display:grid;
+    grid-template-columns:220px minmax(0,1fr) 240px;
+    transition:grid-template-columns .18s ease
+  }
+  main.leftCollapsed{grid-template-columns:0 minmax(0,1fr) 240px}
+  main.rightCollapsed{grid-template-columns:220px minmax(0,1fr) 0}
+  main.leftCollapsed.rightCollapsed{grid-template-columns:0 minmax(0,1fr) 0}
+  .stageWrap{min-width:0;min-height:0;position:relative;background:#101216;overflow:hidden}
+  #stage{
+    width:100%;height:100%;display:block;touch-action:none;cursor:default;
+    background-color:#111317;
+    background-image:
+      linear-gradient(45deg,#1b1e23 25%,transparent 25%),
+      linear-gradient(-45deg,#1b1e23 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#1b1e23 75%),
+      linear-gradient(-45deg,transparent 75%,#1b1e23 75%);
+    background-size:24px 24px;
+    background-position:0 0,0 12px,12px -12px,-12px 0;
+  }
+  .dropHint{
+    position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);
+    width:min(520px,75%);padding:26px;border:2px dashed #505865;border-radius:14px;
+    text-align:center;color:var(--muted);background:#171a20dd;pointer-events:none
+  }
+  .dropHint b{color:var(--text);display:block;margin-bottom:6px;font-size:16px}
+  aside{min-height:0;background:var(--panel);display:flex;flex-direction:column;overflow:hidden}
+  .leftSidebar{border-right:1px solid var(--line)}
+  .rightSidebar{border-left:1px solid var(--line)}
+  main.leftCollapsed .leftSidebar,
+  main.rightCollapsed .rightSidebar{
+    opacity:0;pointer-events:none;border:0
+  }
+  .section{padding:12px;border-bottom:1px solid var(--line)}
+  .section h3{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  label{display:grid;gap:4px;color:var(--muted);font-size:12px}
+  input[type="number"],input[type="text"],select{
+    width:100%;background:#181b20;border:1px solid var(--line);color:var(--text);
+    border-radius:7px;padding:7px 8px
+  }
+  input[type="number"]{cursor:ew-resize}
+  input[type="number"]:focus{cursor:text}
+  body.numberScrubbing, body.numberScrubbing *{cursor:ew-resize!important;user-select:none!important}
+  input[type="range"]{width:100%}
+  .row{display:flex;align-items:center;gap:8px}
+  .row > *{min-width:0}
+  #spriteList{overflow:auto;flex:1;padding:8px}
+  .spriteItem{
+    display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;
+    padding:7px 8px;border:1px solid transparent;border-radius:8px;cursor:pointer
+  }
+  .spriteItem:hover{background:#2a2e35}
+  .spriteItem.selected{background:#183540;border-color:#2e7081}
+  .swatch{width:26px;height:26px;border-radius:6px;border:1px solid #48505c;background:#111}
+  .meta{color:var(--muted);font-size:11px}
+  footer{display:flex;gap:10px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);background:#1d2025;color:var(--muted)}
+  .statusGood{color:var(--good)}
+  .statusWarn{color:var(--warn)}
+  .kbd{border:1px solid #4d5561;background:#242830;border-radius:5px;padding:1px 5px;color:#c8d0db;font-size:11px}
+  .toolActive{outline:2px solid var(--accent)}
+  .check{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .editorActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .editorActions button{min-height:40px;white-space:normal;line-height:1.2}
+  .editorActions .wide{grid-column:1 / -1}
+  .spriteHelp{display:flex;flex-wrap:wrap;gap:5px 8px;align-items:center}
+  .spriteHelp .hint{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;color:var(--muted)}
+  .accordion{border-bottom:1px solid var(--line)}
+  .accordionHeader{
+    width:100%;display:flex;align-items:center;gap:8px;justify-content:space-between;
+    padding:10px 12px;background:#23262c;border:0;border-radius:0;color:var(--text);
+    font-weight:700;text-align:left
+  }
+  .accordionHeader:hover{background:#2a2e35}
+  .accordionHeader .chev{color:var(--muted);font-size:11px}
+  .accordionBody{padding:12px}
+  .accordion.collapsed .accordionBody{display:none}
+  .selectedPanel{
+    border-top:1px solid var(--line);padding:10px 12px;background:#202329
+  }
+  .selectedPanel h3{
+    font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+    margin:0 0 8px
+  }
+  .selectedMeta{display:grid;grid-template-columns:1fr auto;gap:4px 8px;color:var(--muted);font-size:11px;margin-top:8px}
+  .selectedMeta b{color:var(--text);font-weight:600}
+  .sidebarToggle{
+    min-width:34px;padding:7px 9px
+  }
+  .check input{accent-color:#57b8d0}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="title">Sprite Atlas Cleaner <span style="font-size:11px;color:#9ca6b5">v1.2.1</span></div>
+    <div class="toolbar">
+      <button id="toggleLeftBtn" class="sidebarToggle" title="Toggle left sidebar">☰L</button>
+      <button id="toggleRightBtn" class="sidebarToggle" title="Toggle right sidebar">R☰</button>
+      <button id="openBtn" class="primary">Open PNG</button>
+      <input id="fileInput" type="file" accept="image/png,image/webp,image/jpeg" hidden />
+      <button id="detectBtn" disabled>Auto Detect</button>
+      <button id="mergeBtn" disabled>Merge Selected</button>
+      <button id="selectBtn" disabled class="toolActive">Select</button>
+      <button id="eraseBtn" disabled>Erase Brush</button>
+      <button id="restoreBtn" disabled>Restore Brush</button>
+      <button id="splitBtn" disabled>Split Islands</button>
+      <button id="deleteBtn" class="danger" disabled>Delete</button>
+      <button id="helpBtn">Help</button>
+    </div>
+    <div class="spacer"></div>
+    <span class="pill" id="countPill">0 sprites</span>
+  </header>
+
+  <main id="mainLayout">
+    <aside class="leftSidebar">
+      <div class="accordion" id="accDetection">
+        <button class="accordionHeader" data-target="accDetection">
+          <span>Detection</span><span class="chev">▼</span>
+        </button>
+        <div class="accordionBody">
+          <div class="grid2">
+            <label>Alpha threshold
+              <input id="alphaThreshold" type="number" min="0" max="254" value="8" />
+            </label>
+            <label>Min area
+              <input id="minArea" type="number" min="1" value="30" />
+            </label>
+            <label>Group distance
+              <input id="groupDistance" type="number" min="0" value="14" />
+            </label>
+            <label>BG tolerance
+              <input id="bgTolerance" type="number" min="0" max="255" value="28" />
+            </label>
+          </div>
+          <div style="margin-top:10px" class="check">
+            <input id="preferAlpha" type="checkbox" checked />
+            <span>Prefer alpha channel when present</span>
+          </div>
+          <div class="meta" style="margin-top:8px">Click a number to type, or left-drag horizontally to scrub.</div>
+        </div>
+      </div>
+
+      <div class="accordion" id="accMask">
+        <button class="accordionHeader" data-target="accMask">
+          <span>Mask Editing</span><span class="chev">▼</span>
+        </button>
+        <div class="accordionBody">
+          <label>Brush size
+            <input id="brushSize" type="number" min="1" max="200" value="24" />
+          </label>
+          <div class="meta" style="margin-top:8px">
+            E = Erase · R = Restore · RMB drag = brush size
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion collapsed" id="accPacking">
+        <button class="accordionHeader" data-target="accPacking">
+          <span>Packing</span><span class="chev">▶</span>
+        </button>
+        <div class="accordionBody">
+          <div class="grid2">
+            <label>Atlas size
+              <select id="atlasSize">
+                <option>512</option><option>1024</option><option selected>2048</option><option>4096</option>
+              </select>
+            </label>
+            <label>Padding
+              <input id="padding" type="number" min="0" max="64" value="4" />
+            </label>
+            <label>Extrude
+              <input id="extrude" type="number" min="0" max="16" value="2" />
+            </label>
+          </div>
+
+          <label style="margin-top:10px">Export mode
+            <select id="exportMode">
+              <option value="zip" selected>ZIP: atlas.png + atlas.json + segmentation.json</option>
+              <option value="png">PNG only: atlas.png</option>
+              <option value="sprites">ZIP: all individual sprite PNGs</option>
+            </select>
+          </label>
+
+          <div class="editorActions">
+            <button id="previewPackBtn" disabled>Preview Atlas</button>
+            <button id="packBtn" class="primary">Pack & Export</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="stageWrap" id="stageWrap">
+      <canvas id="stage"></canvas>
+      <div class="dropHint" id="dropHint">
+        <b>Drop a sprite sheet here</b>
+        PNG with transparency works best. Solid/near-solid backgrounds are also supported.
+      </div>
+    </div>
+
+    <aside class="rightSidebar">
+      <div class="section" style="padding-bottom:8px">
+        <div class="row">
+          <h3 style="margin:0">Sprites</h3>
+          <div class="spacer"></div>
+          <span class="pill" id="sideCountPill">0</span>
+        </div>
+      </div>
+
+      <div id="spriteList"></div>
+
+      <div class="selectedPanel">
+        <h3>Selected Sprite</h3>
+        <label>Name
+          <input id="spriteName" type="text" placeholder="sprite_001" disabled />
+        </label>
+        <div class="selectedMeta">
+          <span>Size</span><b id="selectedSize">-</b>
+          <span>Area</span><b id="selectedArea">-</b>
+        </div>
+        <div class="editorActions">
+          <button id="exportSelectedBtn" class="wide" disabled>Export Selected PNG</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer>
+    <span id="status">Ready.</span>
+    <div class="spacer"></div>
+    <span>V Select · E Erase · R Restore · RMB drag brush size · Wheel zoom · Alt/Middle-drag pan.</span>
+  </footer>
+</div>
+
+
+<div class="previewOverlay" id="previewOverlay" aria-hidden="true">
+  <div class="previewPanel" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
+    <div class="previewHeader">
+      <h2 id="previewTitle">Packed Atlas Preview</h2>
+      <div class="spacer"></div>
+      <div class="previewToolbar">
+        <label class="check"><input id="previewShowFrames" type="checkbox" checked /> Frames</label>
+        <label class="check"><input id="previewShowNames" type="checkbox" /> Names</label>
+        <button id="previewFitBtn">Fit</button>
+        <button id="previewCloseBtn">Back to Edit</button>
+      </div>
+    </div>
+
+    <div class="previewMain">
+      <div class="previewStageWrap" id="previewStageWrap">
+        <canvas id="previewCanvas"></canvas>
+      </div>
+      <div class="previewSide">
+        <h3 style="margin-top:0">Pack settings</h3>
+
+        <div class="grid2">
+          <label>Atlas size
+            <select id="previewAtlasSize">
+              <option>512</option><option>1024</option><option>2048</option><option>4096</option>
+            </select>
+          </label>
+          <label>Export mode
+            <select id="previewExportMode">
+              <option value="zip">ZIP: atlas.png + JSON</option>
+              <option value="png">PNG only: atlas.png</option>
+              <option value="sprites">ZIP: all individual sprite PNGs</option>
+            </select>
+          </label>
+          <label>Padding
+            <input id="previewPadding" type="number" min="0" max="64" value="4" />
+          </label>
+          <label>Extrude
+            <input id="previewExtrude" type="number" min="0" max="16" value="2" />
+          </label>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button id="previewRepackBtn" class="primary" style="flex:1">Repack</button>
+        </div>
+
+        <div class="check" style="margin-top:9px">
+          <input id="previewAutoRepack" type="checkbox" />
+          <span>Auto Repack when settings change</span>
+        </div>
+
+        <h3 style="margin:16px 0 0">Atlas info</h3>
+        <div class="previewInfo">
+          <span>Size</span><b id="previewSizeInfo">-</b>
+          <span>Sprites</span><b id="previewSpriteCount">-</b>
+          <span>Used area</span><b id="previewUsedArea">-</b>
+          <span>Occupancy</span><b id="previewOccupancy">-</b>
+          <span>Padding</span><b id="previewPaddingInfo">-</b>
+          <span>Extrude</span><b id="previewExtrudeInfo">-</b>
+        </div>
+        <div class="previewHover" id="previewHoverInfo">
+          Hover a sprite to inspect its packed frame.
+        </div>
+      </div>
+    </div>
+
+    <div class="previewFooter">
+      <span>Wheel = zoom · middle/Alt-drag = pan · hover = inspect sprite</span>
+      <div class="spacer"></div>
+      <button id="previewExportBtn" class="primary">Export Current Preview</button>
+    </div>
+  </div>
+</div>
+
+<div class="helpOverlay" id="helpOverlay" aria-hidden="true">
+  <div class="helpPanel" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="helpHeader">
+      <h2 id="helpTitle">Sprite Atlas Cleaner — User Guide</h2>
+      <div class="spacer"></div>
+      <button id="closeHelpBtn">Close</button>
+    </div>
+    <div class="helpBody">
+      <div class="helpGrid">
+        <div class="helpCard">
+          <h3>1. Open an atlas</h3>
+          <p>Drop a PNG/WebP/JPG onto the canvas, or click <b>Open PNG</b>.</p>
+          <ul>
+            <li>Transparent PNG gives the cleanest detection.</li>
+            <li>Solid/near-solid backgrounds can be handled with flood-fill.</li>
+          </ul>
+        </div>
+
+        <div class="helpCard">
+          <h3>2. Auto Detect</h3>
+          <p>Click <b>Auto Detect</b> to find sprite islands.</p>
+          <ul>
+            <li><b>Alpha threshold</b>: minimum alpha counted as foreground.</li>
+            <li><b>Min area</b>: ignores tiny noise components.</li>
+            <li><b>Group distance</b>: groups nearby detached pieces.</li>
+            <li><b>BG tolerance</b>: background color tolerance for flood-fill mode.</li>
+          </ul>
+        </div>
+
+        <div class="helpCard">
+          <h3>Workspace layout</h3>
+          <ul>
+            <li><b>Left:</b> global tools and settings.</li>
+            <li><b>Center:</b> main canvas workspace.</li>
+            <li><b>Right:</b> sprite list and selected sprite properties.</li>
+            <li>Use <b>☰L</b> / <b>R☰</b> in the toolbar to collapse sidebars and maximize canvas space.</li>
+          </ul>
+        </div>
+
+        <div class="helpCard">
+          <h3>3. Select sprites</h3>
+          <ul>
+            <li><span class="kbd">V</span> or <b>Select</b>: return to select mode.</li>
+            <li>Click a sprite on the canvas to select it.</li>
+            <li><span class="kbd">Shift</span> + click: multi-select.</li>
+            <li>You can also select from the detected object list on the right.</li>
+          </ul>
+        </div>
+
+        <div class="helpCard">
+          <h3>4. Merge / Split</h3>
+          <ul>
+            <li><b>Merge Selected</b>: combine multiple detected boxes into one sprite.</li>
+            <li><span class="kbd">M</span>: merge shortcut.</li>
+            <li><b>Split Islands</b>: split one sprite into separate connected components.</li>
+            <li><b>Delete</b>: remove unwanted detected objects.</li>
+          </ul>
+        </div>
+
+        <div class="helpCard">
+          <h3>5. Mask editing</h3>
+          <ul>
+            <li><span class="kbd">E</span> / <b>Erase Brush</b>: remove pixels from the selected mask.</li>
+            <li><span class="kbd">R</span> / <b>Restore Brush</b>: restore pixels from the original source.</li>
+            <li>A circular cursor shows the current brush footprint.</li>
+            <li><span class="kbd">Esc</span> or <span class="kbd">V</span>: return to Select.</li>
+          </ul>
+        </div>
+
+        <div class="helpCard">
+          <h3>6. Brush size</h3>
+          <ul>
+            <li>Change <b>Brush size</b> numerically in the panel.</li>
+            <li><b>Right mouse drag</b> on canvas: drag right to increase, left to decrease.</li>
+            <li>The brush preview updates in real time.</li>
+          </ul>
+        </div>
+
+        <div class="helpCard">
+          <h3>7. Viewport controls</h3>
+          <ul>
+            <li>Mouse wheel: zoom in/out.</li>
+            <li><span class="kbd">Alt</span> + left-drag: pan.</li>
+            <li>Middle mouse drag: pan.</li>
+          </ul>
+        </div>
+
+        <div class="helpCard">
+          <h3>8. Numeric settings</h3>
+          <ul>
+            <li>Click a number field to type an exact value.</li>
+            <li>Use the browser stepper arrows.</li>
+            <li>Left-drag horizontally on a number field to scrub its value.</li>
+            <li><span class="kbd">Shift</span> + drag: fine adjustment.</li>
+            <li><span class="kbd">Ctrl/Cmd</span> + drag: faster adjustment.</li>
+          </ul>
+        </div>
+
+        <div class="helpCard">
+          <h3>9. Packing & Preview</h3>
+          <ul>
+            <li><b>Atlas size</b>: output texture dimensions.</li>
+            <li><b>Padding</b>: empty space between sprites.</li>
+            <li><b>Extrude</b>: duplicates edge pixels to reduce texture bleeding.</li>
+            <li><b>Preview Packed Atlas</b>: inspect the exact MaxRects result before downloading.</li>
+            <li>Inside Preview you can change <b>Atlas size</b>, <b>Padding</b>, <b>Extrude</b> and <b>Export mode</b>.</li>
+            <li>Use <b>Repack</b> manually or enable <b>Auto Repack</b> to rebuild immediately when settings change.</li>
+            <li>Preview supports zoom, pan, frame boxes, names, hover inspection and direct export.</li>
+          </ul>
+        </div>
+
+        <div class="helpCard">
+          <h3>10. Export</h3>
+          <ul>
+            <li><b>ZIP atlas mode</b>: exports <code>atlas.png</code>, <code>atlas.json</code>, <code>segmentation.json</code>.</li>
+            <li><b>PNG only</b>: exports just the packed <code>atlas.png</code>.</li>
+            <li><b>All individual sprite PNGs</b>: exports a ZIP containing one native-resolution trimmed PNG per detected sprite.</li>
+            <li><b>Selected PNG</b>: exports the currently selected sprite as a standalone trimmed PNG.</li>
+            <li>Repeated exports do not require reloading the page.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="helpFlow">
+        <b>Recommended workflow:</b><br><br>
+        <code>Open image → Auto Detect → Select → Merge/Split → Erase/Restore mask → Rename in Selected Sprite → Open Packing → Preview Packed Atlas → Export</code>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+const $ = s => document.querySelector(s);
+const canvas = $('#stage'), ctx = canvas.getContext('2d', {alpha:true});
+const state = {
+  img:null, imgCanvas:null, imgCtx:null, imageData:null,
+  sprites:[], selected:new Set(),
+  zoom:1, panX:0, panY:0, fitZoom:1,
+  dragging:false, lastX:0, lastY:0,
+  tool:'select', painting:false,
+  hoverOnCanvas:false, hoverScreenX:0, hoverScreenY:0,
+  brushSizing:false, brushSizeStartX:0, brushSizeStartValue:24,
+  packedPreview:null,
+  previewZoom:1, previewPanX:0, previewPanY:0,
+  previewFitZoom:1, previewDragging:false, previewLastX:0, previewLastY:0,
+  previewHoverId:null
+};
+
+function setStatus(msg, cls=''){
+  const el=$('#status'); el.textContent=msg; el.className=cls;
+}
+function updateSidebarToggles(){
+  const main=$('#mainLayout');
+  $('#toggleLeftBtn').textContent=main.classList.contains('leftCollapsed')?'L☰':'☰L';
+  $('#toggleRightBtn').textContent=main.classList.contains('rightCollapsed')?'☰R':'R☰';
+}
+$('#toggleLeftBtn').onclick=()=>{
+  $('#mainLayout').classList.toggle('leftCollapsed');
+  updateSidebarToggles();
+  setTimeout(resizeStage,190);
+};
+$('#toggleRightBtn').onclick=()=>{
+  $('#mainLayout').classList.toggle('rightCollapsed');
+  updateSidebarToggles();
+  setTimeout(resizeStage,190);
+};
+document.querySelectorAll('.accordionHeader').forEach(btn=>{
+  btn.onclick=()=>{
+    const acc=$('#'+btn.dataset.target);
+    acc.classList.toggle('collapsed');
+    btn.querySelector('.chev').textContent=acc.classList.contains('collapsed')?'▶':'▼';
+    setTimeout(resizeStage,50);
+  };
+});
+function setHelpOpen(open){
+  const overlay=$('#helpOverlay');
+  overlay.classList.toggle('open',open);
+  overlay.setAttribute('aria-hidden',open?'false':'true');
+}
+$('#helpBtn').onclick=()=>setHelpOpen(true);
+$('#closeHelpBtn').onclick=()=>setHelpOpen(false);
+$('#helpOverlay').addEventListener('pointerdown',e=>{
+  if(e.target===$('#helpOverlay')) setHelpOpen(false);
+});
+function resizeStage(){
+  const r=canvas.getBoundingClientRect();
+  canvas.width=Math.max(1,Math.floor(r.width*devicePixelRatio));
+  canvas.height=Math.max(1,Math.floor(r.height*devicePixelRatio));
+  render();
+}
+new ResizeObserver(resizeStage).observe($('#stageWrap'));
+
+function loadFile(file){
+  if(!file) return;
+  const url=URL.createObjectURL(file);
+  const img=new Image();
+  img.onload=()=>{
+    URL.revokeObjectURL(url);
+    const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight;
+    const cctx=c.getContext('2d',{willReadFrequently:true}); cctx.drawImage(img,0,0);
+    state.img=img; state.imgCanvas=c; state.imgCtx=cctx; state.imageData=cctx.getImageData(0,0,c.width,c.height);
+    state.sprites=[]; state.selected.clear(); $('#dropHint').style.display='none';
+    const rr=canvas.getBoundingClientRect();
+    state.fitZoom=Math.min(rr.width/c.width, rr.height/c.height)*0.92;
+    state.zoom=state.fitZoom; state.panX=(rr.width-c.width*state.zoom)/2; state.panY=(rr.height-c.height*state.zoom)/2;
+    enableControls(true); autoDetect(); render();
+  };
+  img.src=url;
+}
+$('#openBtn').onclick=()=>$('#fileInput').click();
+$('#fileInput').onchange=e=>loadFile(e.target.files[0]);
+
+const sw=$('#stageWrap');
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+['dragenter','dragover'].forEach(ev=>sw.addEventListener(ev,e=>{e.preventDefault(); sw.style.outline='2px solid #66d9ef';}));
+['dragleave','drop'].forEach(ev=>sw.addEventListener(ev,e=>{e.preventDefault(); sw.style.outline='';}));
+sw.addEventListener('drop',e=>loadFile([...e.dataTransfer.files].find(f=>f.type.startsWith('image/'))));
+
+function enableControls(on){
+  ['detectBtn','selectBtn','eraseBtn','restoreBtn','splitBtn','previewPackBtn','packBtn'].forEach(id=>$('#'+id).disabled=!on);
+  updateSelectionUI();
+}
+
+function sourceMask(){
+  const {width:w,height:h,data}=state.imageData;
+  const n=w*h, out=new Uint8Array(n);
+  const alphaT=+$('#alphaThreshold').value||0;
+  let hasTransparent=false, hasVisible=false;
+  for(let i=0;i<n;i++){ const a=data[i*4+3]; if(a<250) hasTransparent=true; if(a>alphaT) hasVisible=true; }
+  const useAlpha=$('#preferAlpha').checked && hasTransparent && hasVisible;
+  if(useAlpha){
+    for(let i=0;i<n;i++) out[i]=data[i*4+3]>alphaT?1:0;
+    return {mask:out,mode:'alpha'};
+  }
+
+  const tol=+$('#bgTolerance').value||28;
+  const visited=new Uint8Array(n);
+  const qx=new Int32Array(n), qy=new Int32Array(n);
+  let head=0,tail=0;
+  const seed=(x,y)=>{const idx=y*w+x;if(!visited[idx]){visited[idx]=1;qx[tail]=x;qy[tail]=y;tail++;}};
+  for(let x=0;x<w;x++){seed(x,0);seed(x,h-1)}
+  for(let y=0;y<h;y++){seed(0,y);seed(w-1,y)}
+  const refs=[
+    [data[0],data[1],data[2]],
+    [data[(w-1)*4],data[(w-1)*4+1],data[(w-1)*4+2]],
+    [data[((h-1)*w)*4],data[((h-1)*w)*4+1],data[((h-1)*w)*4+2]],
+    [data[((h*w)-1)*4],data[((h*w)-1)*4+1],data[((h*w)-1)*4+2]]
+  ];
+  const nearBg=(idx)=>{
+    const r=data[idx*4],g=data[idx*4+1],b=data[idx*4+2],a=data[idx*4+3];
+    if(a<=alphaT) return true;
+    let best=1e9;
+    for(const c of refs){
+      const d=Math.sqrt((r-c[0])**2+(g-c[1])**2+(b-c[2])**2);
+      if(d<best)best=d;
+    }
+    return best<=tol;
+  };
+  while(head<tail){
+    const x=qx[head],y=qy[head++], idx=y*w+x;
+    const nb=[[x+1,y],[x-1,y],[x,y+1],[x,y-1]];
+    for(const [nx,ny] of nb){
+      if(nx<0||ny<0||nx>=w||ny>=h) continue;
+      const ni=ny*w+nx;
+      if(!visited[ni] && nearBg(ni)){visited[ni]=1;qx[tail]=nx;qy[tail]=ny;tail++}
+    }
+  }
+  for(let i=0;i<n;i++) out[i]=visited[i]?0:1;
+  return {mask:out,mode:'flood'};
+}
+
+function connectedComponents(mask,w,h,minArea){
+  const seen=new Uint8Array(mask.length), comps=[];
+  const q=new Int32Array(mask.length);
+  const dirs=[-1,1,-w,w,-w-1,-w+1,w-1,w+1];
+  for(let i=0;i<mask.length;i++){
+    if(!mask[i]||seen[i])continue;
+    let head=0,tail=0; q[tail++]=i; seen[i]=1;
+    const pix=[]; let minX=w,minY=h,maxX=-1,maxY=-1;
+    while(head<tail){
+      const p=q[head++], x=p%w,y=(p/w)|0; pix.push(p);
+      if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;
+      for(const d of dirs){
+        const np=p+d;if(np<0||np>=mask.length||seen[np]||!mask[np])continue;
+        const nx=np%w,ny=(np/w)|0;
+        if(Math.abs(nx-x)>1||Math.abs(ny-y)>1)continue;
+        seen[np]=1;q[tail++]=np;
+      }
+    }
+    if(pix.length>=minArea) comps.push({pix,minX,minY,maxX,maxY,area:pix.length});
+  }
+  return comps;
+}
+function bboxDist(a,b){
+  const dx=Math.max(0,Math.max(a.minX,b.minX)-Math.min(a.maxX,b.maxX));
+  const dy=Math.max(0,Math.max(a.minY,b.minY)-Math.min(a.maxY,b.maxY));
+  return Math.hypot(dx,dy);
+}
+function groupNearby(comps,dist){
+  const parent=comps.map((_,i)=>i);
+  const find=x=>parent[x]===x?x:(parent[x]=find(parent[x]));
+  const join=(a,b)=>{a=find(a);b=find(b);if(a!==b)parent[b]=a};
+  for(let i=0;i<comps.length;i++)for(let j=i+1;j<comps.length;j++){
+    if(bboxDist(comps[i],comps[j])<=dist){
+      const small=Math.min(comps[i].area,comps[j].area), large=Math.max(comps[i].area,comps[j].area);
+      if(small/large<0.18 || dist<=4) join(i,j);
+    }
+  }
+  const groups=new Map();
+  comps.forEach((c,i)=>{const r=find(i);if(!groups.has(r))groups.set(r,[]);groups.get(r).push(c)});
+  return [...groups.values()];
+}
+
+function autoDetect(){
+  if(!state.imageData)return;
+  setStatus('Detecting…');
+  setTimeout(()=>{
+    const w=state.imageData.width,h=state.imageData.height;
+    const {mask,mode}=sourceMask();
+    const comps=connectedComponents(mask,w,h,+$('#minArea').value||30);
+    const groups=groupNearby(comps,+$('#groupDistance').value||0);
+    state.sprites=groups.map((g,idx)=>spriteFromComponents(g,idx));
+    state.selected.clear();
+    refreshList(); updateSelectionUI(); render();
+    setStatus(`Detected ${state.sprites.length} sprites using ${mode} segmentation.`, 'statusGood');
+  },10);
+}
+$('#detectBtn').onclick=autoDetect;
+
+function spriteFromComponents(g,idx){
+  let minX=1e9,minY=1e9,maxX=-1,maxY=-1,area=0;
+  const pix=[];
+  for(const c of g){
+    minX=Math.min(minX,c.minX);
+    minY=Math.min(minY,c.minY);
+    maxX=Math.max(maxX,c.maxX);
+    maxY=Math.max(maxY,c.maxY);
+    area+=c.area;
+    // Do not use pix.push(...c.pix) here: large connected components can
+    // contain hundreds of thousands of pixels and spreading that array
+    // turns every pixel into a function argument, overflowing the JS call stack.
+    for(let i=0;i<c.pix.length;i++) pix.push(c.pix[i]);
+  }
+  const bw=maxX-minX+1,bh=maxY-minY+1;
+  const mask=new Uint8Array(bw*bh);
+  const W=state.imageData.width;
+  for(const p of pix){const x=p%W,y=(p/W)|0;mask[(y-minY)*bw+(x-minX)]=255}
+  return {id:crypto.randomUUID(),name:`sprite_${String(idx+1).padStart(3,'0')}`,x:minX,y:minY,w:bw,h:bh,mask,area};
+}
+
+function refreshList(){
+  const box=$('#spriteList'); box.innerHTML='';
+  state.sprites.forEach((s,i)=>{
+    const row=document.createElement('div');row.className='spriteItem'+(state.selected.has(s.id)?' selected':'');
+    row.dataset.id=s.id;
+    const thumb=document.createElement('canvas');thumb.className='swatch';thumb.width=52;thumb.height=52;
+    drawSpriteThumb(thumb,s);
+    const info=document.createElement('div');info.innerHTML=`<div>${escapeHtml(s.name)}</div><div class="meta">${s.w}×${s.h} · ${s.area}px</div>`;
+    const num=document.createElement('div');num.className='meta';num.textContent=String(i+1).padStart(2,'0');
+    row.append(thumb,info,num);
+    row.onclick=e=>selectSprite(s.id,e.shiftKey);
+    box.appendChild(row);
+  });
+  $('#countPill').textContent=`${state.sprites.length} sprite${state.sprites.length===1?'':'s'}`;
+  if($('#sideCountPill')) $('#sideCountPill').textContent=state.sprites.length;
+}
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function drawSpriteThumb(c,s){
+  const t=c.getContext('2d');t.clearRect(0,0,c.width,c.height);
+  const pad=4,sc=Math.min((c.width-pad*2)/s.w,(c.height-pad*2)/s.h);
+  const tmp=extractSpriteCanvas(s,false); t.drawImage(tmp,(c.width-s.w*sc)/2,(c.height-s.h*sc)/2,s.w*sc,s.h*sc);
+}
+
+function selectSprite(id,multi=false){
+  if(!multi)state.selected.clear();
+  if(multi && state.selected.has(id))state.selected.delete(id); else state.selected.add(id);
+  refreshList();updateSelectionUI();render();
+}
+function updateSelectionUI(){
+  const n=state.selected.size, single=n===1;
+  $('#mergeBtn').disabled=n<2;
+  $('#deleteBtn').disabled=n===0;
+  $('#exportSelectedBtn').disabled=!single;
+  $('#spriteName').disabled=!single;
+
+  if(single){
+    const s=getSelected()[0];
+    $('#spriteName').value=s.name;
+    $('#selectedSize').textContent=`${s.w}×${s.h}`;
+    $('#selectedArea').textContent=`${s.area.toLocaleString()} px`;
+  }else{
+    $('#spriteName').value='';
+    $('#selectedSize').textContent=n>1?`${n} sprites`:'-';
+    $('#selectedArea').textContent='-';
+  }
+}
+function getSelected(){return state.sprites.filter(s=>state.selected.has(s.id))}
+$('#spriteName').onchange=e=>{const s=getSelected()[0];if(s){s.name=e.target.value.trim()||s.name;refreshList()}};
+
+function mergeSelected(){
+  const arr=getSelected(); if(arr.length<2)return;
+  const minX=Math.min(...arr.map(s=>s.x)),minY=Math.min(...arr.map(s=>s.y));
+  const maxX=Math.max(...arr.map(s=>s.x+s.w-1)),maxY=Math.max(...arr.map(s=>s.y+s.h-1));
+  const w=maxX-minX+1,h=maxY-minY+1,mask=new Uint8Array(w*h);
+  let area=0;
+  for(const s of arr){
+    for(let y=0;y<s.h;y++)for(let x=0;x<s.w;x++){
+      if(s.mask[y*s.w+x]){
+        const di=(y+s.y-minY)*w+(x+s.x-minX);
+        if(!mask[di]){mask[di]=255;area++}
+      }
+    }
+  }
+  const keep=arr[0];
+  const merged={id:crypto.randomUUID(),name:keep.name,x:minX,y:minY,w,h,mask,area};
+  const ids=new Set(arr.map(s=>s.id));
+  state.sprites=state.sprites.filter(s=>!ids.has(s.id));state.sprites.push(merged);
+  state.selected=new Set([merged.id]); refreshList();updateSelectionUI();render();
+}
+$('#mergeBtn').onclick=mergeSelected;
+
+function trimSprite(s){
+  let minX=s.w,minY=s.h,maxX=-1,maxY=-1,area=0;
+  for(let y=0;y<s.h;y++)for(let x=0;x<s.w;x++)if(s.mask[y*s.w+x]){
+    area++; if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;
+  }
+  if(maxX<0)return null;
+  const nw=maxX-minX+1,nh=maxY-minY+1,nm=new Uint8Array(nw*nh);
+  for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++)if(s.mask[y*s.w+x])nm[(y-minY)*nw+(x-minX)]=255;
+  return {...s,x:s.x+minX,y:s.y+minY,w:nw,h:nh,mask:nm,area};
+}
+function splitIslands(){
+  const arr=getSelected();
+  if(arr.length!==1){
+    setStatus('Select exactly one sprite to split.','statusWarn');
+    return;
+  }
+
+  const s=arr[0];
+  const bin=new Uint8Array(s.mask.length);
+  for(let i=0;i<bin.length;i++) bin[i]=s.mask[i]?1:0;
+
+  // connectedComponents() runs in the SELECTED SPRITE'S LOCAL coordinate system.
+  // Keep the component bounds local while building the new mask, then offset the
+  // final sprite origin by s.x / s.y. The previous implementation converted only
+  // c.pix to global image indices but left c.minX/minY/maxX/maxY local, which mixed
+  // two coordinate systems and caused the post-split boxes to jump/shift.
+  const comps=connectedComponents(bin,s.w,s.h,1);
+  if(comps.length<=1){
+    setStatus('Selected sprite currently has only one connected island.','statusWarn');
+    return;
+  }
+
+  const created=comps.map((c,i)=>{
+    const w=c.maxX-c.minX+1;
+    const h=c.maxY-c.minY+1;
+    const mask=new Uint8Array(w*h);
+
+    for(let k=0;k<c.pix.length;k++){
+      const p=c.pix[k];
+      const lx=p%s.w;
+      const ly=(p/s.w)|0;
+      mask[(ly-c.minY)*w+(lx-c.minX)]=255;
+    }
+
+    return {
+      id:crypto.randomUUID(),
+      name:`${s.name}_${i+1}`,
+      x:s.x+c.minX,
+      y:s.y+c.minY,
+      w,
+      h,
+      mask,
+      area:c.area
+    };
+  });
+
+  state.sprites=state.sprites.filter(x=>x.id!==s.id).concat(created);
+  state.selected=new Set(created.map(x=>x.id));
+  refreshList();
+  updateSelectionUI();
+  render();
+  setStatus(`Split into ${created.length} islands.`,'statusGood');
+}
+$('#splitBtn').onclick=splitIslands;
+
+$('#deleteBtn').onclick=()=>{
+  const ids=new Set(state.selected);state.sprites=state.sprites.filter(s=>!ids.has(s.id));state.selected.clear();
+  refreshList();updateSelectionUI();render();
+};
+
+function setTool(tool){
+  state.tool=tool;
+  $('#selectBtn').classList.toggle('toolActive',tool==='select');
+  $('#eraseBtn').classList.toggle('toolActive',tool==='erase');
+  $('#restoreBtn').classList.toggle('toolActive',tool==='restore');
+  canvas.style.cursor=tool==='select'?'default':'crosshair';
+
+  if(tool==='select') setStatus('Select mode: click sprites on the canvas. Shift-click for multi-select.');
+  else if(tool==='erase') setStatus('Erase Brush mode. A red brush circle follows the cursor. Press V, Escape, or click Select to return to object selection.');
+  else if(tool==='restore') setStatus('Restore Brush mode. A green brush circle follows the cursor. Press V, Escape, or click Select to return to object selection.');
+}
+$('#selectBtn').onclick=()=>setTool('select');
+$('#eraseBtn').onclick=()=>setTool('erase');
+$('#restoreBtn').onclick=()=>setTool('restore');
+
+function screenToImage(clientX,clientY){
+  const r=canvas.getBoundingClientRect();
+  const sx=clientX-r.left,sy=clientY-r.top;
+  return {x:(sx-state.panX)/state.zoom,y:(sy-state.panY)/state.zoom};
+}
+function updateHoverFromClient(clientX,clientY){
+  const r=canvas.getBoundingClientRect();
+  state.hoverScreenX=clientX-r.left;
+  state.hoverScreenY=clientY-r.top;
+  state.hoverOnCanvas=state.hoverScreenX>=0 && state.hoverScreenY>=0 && state.hoverScreenX<=r.width && state.hoverScreenY<=r.height;
+}
+function hitTest(ix,iy){
+  for(let i=state.sprites.length-1;i>=0;i--){
+    const s=state.sprites[i];const x=Math.floor(ix-s.x),y=Math.floor(iy-s.y);
+    if(x>=0&&y>=0&&x<s.w&&y<s.h&&s.mask[y*s.w+x])return s;
+  }
+  return null;
+}
+canvas.addEventListener('wheel',e=>{
+  if(!state.img)return;e.preventDefault();
+  const r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  const beforeX=(mx-state.panX)/state.zoom,beforeY=(my-state.panY)/state.zoom;
+  const factor=Math.exp(-e.deltaY*0.0012);state.zoom=Math.max(0.05,Math.min(12,state.zoom*factor));
+  state.panX=mx-beforeX*state.zoom;state.panY=my-beforeY*state.zoom;render();
+},{passive:false});
+canvas.addEventListener('pointerdown',e=>{
+  if(!state.img)return;
+  canvas.setPointerCapture(e.pointerId);
+  updateHoverFromClient(e.clientX,e.clientY);
+
+  // Right-drag in brush mode changes brush size horizontally.
+  if(e.button===2 && (state.tool==='erase' || state.tool==='restore')){
+    state.brushSizing=true;
+    state.brushSizeStartX=e.clientX;
+    state.brushSizeStartValue=+$('#brushSize').value||24;
+    setStatus('Brush size adjust: drag right to increase, left to decrease.');
+    render();
+    return;
+  }
+
+  if(state.tool==='select'){
+    if(e.button===1||e.altKey){state.dragging=true;state.lastX=e.clientX;state.lastY=e.clientY;return}
+    if(e.button!==0)return;
+    const p=screenToImage(e.clientX,e.clientY),s=hitTest(p.x,p.y);
+    if(s)selectSprite(s.id,e.shiftKey); else if(!e.shiftKey){state.selected.clear();refreshList();updateSelectionUI();render()}
+  }else{
+    if(e.button!==0)return;
+    if(state.selected.size!==1){setStatus('Select exactly one sprite before painting the mask.','statusWarn');return}
+    state.painting=true; paintMask(e.clientX,e.clientY);
+  }
+});
+canvas.addEventListener('pointerenter',e=>{
+  updateHoverFromClient(e.clientX,e.clientY);
+  render();
+});
+canvas.addEventListener('pointerleave',e=>{
+  state.hoverOnCanvas=false;
+  render();
+});
+canvas.addEventListener('pointermove',e=>{
+  updateHoverFromClient(e.clientX,e.clientY);
+
+  if(state.brushSizing){
+    const delta=e.clientX-state.brushSizeStartX;
+    const next=Math.max(1,Math.min(200,Math.round(state.brushSizeStartValue+delta)));
+    $('#brushSize').value=next;
+    setStatus(`Brush size: ${next}px · drag right to increase, left to decrease.`);
+    render();
+    return;
+  }
+
+  if(state.dragging){
+    state.panX+=e.clientX-state.lastX;
+    state.panY+=e.clientY-state.lastY;
+    state.lastX=e.clientX;state.lastY=e.clientY;
+    render();
+  }
+  if(state.painting)paintMask(e.clientX,e.clientY);
+  else render();
+});
+canvas.addEventListener('pointerup',e=>{
+  state.dragging=false;
+  state.painting=false;
+  state.brushSizing=false;
+  updateHoverFromClient(e.clientX,e.clientY);
+  render();
+});
+canvas.addEventListener('pointercancel',e=>{
+  state.dragging=false;
+  state.painting=false;
+  state.brushSizing=false;
+  state.hoverOnCanvas=false;
+  render();
+});
+
+function paintMask(cx,cy){
+  const s=getSelected()[0],p=screenToImage(cx,cy),R=(+$('#brushSize').value||24)/2;
+  const minX=Math.floor(p.x-R),maxX=Math.ceil(p.x+R),minY=Math.floor(p.y-R),maxY=Math.ceil(p.y+R);
+  for(let iy=minY;iy<=maxY;iy++)for(let ix=minX;ix<=maxX;ix++){
+    if((ix-p.x)**2+(iy-p.y)**2>R*R)continue;
+    const lx=ix-s.x,ly=iy-s.y;
+    if(lx<0||ly<0||lx>=s.w||ly>=s.h)continue;
+    const mi=ly*s.w+lx;
+    if(state.tool==='erase')s.mask[mi]=0;
+    else{
+      const si=iy*state.imageData.width+ix;
+      if(ix>=0&&iy>=0&&ix<state.imageData.width&&iy<state.imageData.height && sourceMaskCacheAt(si))s.mask[mi]=255;
+    }
+  }
+  let newArea=0;
+  for(let i=0;i<s.mask.length;i++) if(s.mask[i]) newArea++;
+  s.area=newArea;
+  render();
+}
+let srcMaskCache=null;
+function sourceMaskCacheAt(i){if(!srcMaskCache)srcMaskCache=sourceMask().mask;return srcMaskCache[i]}
+['alphaThreshold','bgTolerance','preferAlpha'].forEach(id=>$('#'+id).addEventListener('change',()=>srcMaskCache=null));
+
+function extractSpriteCanvas(s,trim=true){
+  const ts=trimSprite(s); if(!ts)return document.createElement('canvas');
+  const use=trim?ts:s, out=document.createElement('canvas');out.width=use.w;out.height=use.h;
+  const o=out.getContext('2d');o.drawImage(state.imgCanvas,use.x,use.y,use.w,use.h,0,0,use.w,use.h);
+  const id=o.getImageData(0,0,use.w,use.h);
+  for(let i=0;i<use.mask.length;i++) if(!use.mask[i]) id.data[i*4+3]=0;
+  o.putImageData(id,0,0); return out;
+}
+
+function render(){
+  const dpr=devicePixelRatio||1;
+  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(!state.img)return;
+  ctx.setTransform(dpr*state.zoom,0,0,dpr*state.zoom,dpr*state.panX,dpr*state.panY);
+  ctx.drawImage(state.imgCanvas,0,0);
+  ctx.lineWidth=2/state.zoom;
+  for(const s of state.sprites){
+    const sel=state.selected.has(s.id);
+    ctx.strokeStyle=sel?'#66d9ef':'rgba(255,255,255,.42)';
+    ctx.setLineDash(sel?[]:[5/state.zoom,5/state.zoom]);
+    ctx.strokeRect(s.x-.5,s.y-.5,s.w+1,s.h+1);
+    if(sel){
+      ctx.fillStyle='rgba(102,217,239,.18)';
+      const mc=document.createElement('canvas');mc.width=s.w;mc.height=s.h;
+      const mctx=mc.getContext('2d');const md=mctx.createImageData(s.w,s.h);
+      for(let i=0;i<s.mask.length;i++)if(s.mask[i]){md.data[i*4]=102;md.data[i*4+1]=217;md.data[i*4+2]=239;md.data[i*4+3]=60}
+      mctx.putImageData(md,0,0);ctx.drawImage(mc,s.x,s.y);
+    }
+  }
+  ctx.setLineDash([]);
+
+  if(state.hoverOnCanvas && (state.tool==='erase' || state.tool==='restore')){
+    const radius=((+$('#brushSize').value||24)/2) * state.zoom;
+    const color=state.tool==='erase' ? '#ff6b6b' : '#74d680';
+
+    // Draw brush preview in screen space so the size shown matches the current zoom.
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.beginPath();
+    ctx.arc(state.hoverScreenX,state.hoverScreenY,radius,0,Math.PI*2);
+    ctx.fillStyle = state.tool==='erase' ? 'rgba(255,107,107,0.10)' : 'rgba(116,214,128,0.10)';
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(state.hoverScreenX,state.hoverScreenY,radius,0,Math.PI*2);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = color;
+    ctx.stroke();
+
+    // Small center marker improves precision.
+    ctx.beginPath();
+    ctx.moveTo(state.hoverScreenX-6,state.hoverScreenY);
+    ctx.lineTo(state.hoverScreenX+6,state.hoverScreenY);
+    ctx.moveTo(state.hoverScreenX,state.hoverScreenY-6);
+    ctx.lineTo(state.hoverScreenX,state.hoverScreenY+6);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.stroke();
+  }
+}
+
+function downloadBlob(blob,name){
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+}
+function canvasBlob(c){return new Promise(res=>c.toBlob(res,'image/png'))}
+
+// Export one ZIP per click instead of triggering three separate browser downloads.
+// This avoids browser user-activation / automatic-download blocking and makes
+// repeated exports work without reloading the page.
+const CRC32_TABLE=(()=>{
+  const t=new Uint32Array(256);
+  for(let n=0;n<256;n++){
+    let c=n;
+    for(let k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);
+    t[n]=c>>>0;
+  }
+  return t;
+})();
+function crc32(bytes){
+  let c=0xFFFFFFFF;
+  for(let i=0;i<bytes.length;i++) c=CRC32_TABLE[(c^bytes[i])&255]^(c>>>8);
+  return (c^0xFFFFFFFF)>>>0;
+}
+function u16(v){const a=new Uint8Array(2);new DataView(a.buffer).setUint16(0,v,true);return a}
+function u32(v){const a=new Uint8Array(4);new DataView(a.buffer).setUint32(0,v>>>0,true);return a}
+function concatBytes(parts){
+  let total=0;
+  for(const p of parts) total+=p.length;
+  const out=new Uint8Array(total);
+  let off=0;
+  for(const p of parts){out.set(p,off);off+=p.length}
+  return out;
+}
+function zipDosDateTime(date=new Date()){
+  const year=Math.max(1980,date.getFullYear());
+  const dosTime=((date.getHours()&31)<<11)|((date.getMinutes()&63)<<5)|((date.getSeconds()/2)|0);
+  const dosDate=(((year-1980)&127)<<9)|(((date.getMonth()+1)&15)<<5)|(date.getDate()&31);
+  return {dosTime,dosDate};
+}
+async function blobToBytes(blob){return new Uint8Array(await blob.arrayBuffer())}
+async function makeZip(files){
+  const enc=new TextEncoder();
+  const localParts=[],centralParts=[];
+  let localOffset=0;
+  const {dosTime,dosDate}=zipDosDateTime();
+
+  for(const file of files){
+    const nameBytes=enc.encode(file.name);
+    const data=file.bytes instanceof Uint8Array?file.bytes:new Uint8Array(file.bytes);
+    const crc=crc32(data);
+
+    const localHeader=concatBytes([
+      u32(0x04034b50),u16(20),u16(0x0800),u16(0),
+      u16(dosTime),u16(dosDate),u32(crc),
+      u32(data.length),u32(data.length),
+      u16(nameBytes.length),u16(0),nameBytes
+    ]);
+    localParts.push(localHeader,data);
+
+    const centralHeader=concatBytes([
+      u32(0x02014b50),u16(20),u16(20),u16(0x0800),u16(0),
+      u16(dosTime),u16(dosDate),u32(crc),
+      u32(data.length),u32(data.length),
+      u16(nameBytes.length),u16(0),u16(0),u16(0),u16(0),
+      u32(0),u32(localOffset),nameBytes
+    ]);
+    centralParts.push(centralHeader);
+    localOffset+=localHeader.length+data.length;
+  }
+
+  const local=concatBytes(localParts);
+  const central=concatBytes(centralParts);
+  const eocd=concatBytes([
+    u32(0x06054b50),u16(0),u16(0),
+    u16(files.length),u16(files.length),
+    u32(central.length),u32(local.length),u16(0)
+  ]);
+  return new Blob([local,central,eocd],{type:'application/zip'});
+}
+$('#exportSelectedBtn').onclick=async()=>{
+  const s=getSelected()[0];if(!s)return;
+  const c=extractSpriteCanvas(s,true); downloadBlob(await canvasBlob(c),`${safeName(s.name)}.png`);
+};
+function safeName(s){return s.replace(/[^a-z0-9_\-.]+/gi,'_')||'sprite'}
+
+class MaxRects {
+  constructor(w,h){this.w=w;this.h=h;this.free=[{x:0,y:0,w,h}]}
+  insert(w,h){
+    let best=-1,bss=1e9,bls=1e9;
+    for(let i=0;i<this.free.length;i++){
+      const f=this.free[i];if(w<=f.w&&h<=f.h){
+        const ss=Math.min(f.w-w,f.h-h),ls=Math.max(f.w-w,f.h-h);
+        if(ss<bss||(ss===bss&&ls<bls)){best=i;bss=ss;bls=ls}
+      }
+    }
+    if(best<0)return null;
+    const node={x:this.free[best].x,y:this.free[best].y,w,h};this.split(node);this.prune();return node;
+  }
+  split(u){
+    const next=[];
+    for(const f of this.free){
+      if(u.x>=f.x+f.w||u.x+u.w<=f.x||u.y>=f.y+f.h||u.y+u.h<=f.y){next.push(f);continue}
+      if(u.x>f.x)next.push({x:f.x,y:f.y,w:u.x-f.x,h:f.h});
+      if(u.x+u.w<f.x+f.w)next.push({x:u.x+u.w,y:f.y,w:f.x+f.w-(u.x+u.w),h:f.h});
+      if(u.y>f.y)next.push({x:f.x,y:f.y,w:f.w,h:u.y-f.y});
+      if(u.y+u.h<f.y+f.h)next.push({x:f.x,y:u.y+u.h,w:f.w,h:f.y+f.h-(u.y+u.h)});
+    }
+    this.free=next;
+  }
+  prune(){
+    for(let i=0;i<this.free.length;i++)for(let j=i+1;j<this.free.length;j++){
+      const a=this.free[i],b=this.free[j];
+      if(a.x>=b.x&&a.y>=b.y&&a.x+a.w<=b.x+b.w&&a.y+a.h<=b.y+b.h){this.free.splice(i,1);i--;break}
+      if(b.x>=a.x&&b.y>=a.y&&b.x+b.w<=a.x+a.w&&b.y+b.h<=a.y+a.h){this.free.splice(j,1);j--}
+    }
+  }
+}
+function extrudeSprite(dst,dctx,img,x,y,e){
+  dctx.drawImage(img,x,y);
+  if(e<=0)return;
+  const w=img.width,h=img.height;
+  for(let i=1;i<=e;i++){
+    dctx.drawImage(img,0,0,w,1,x,y-i,w,1);
+    dctx.drawImage(img,0,h-1,w,1,x,y+h-1+i,w,1);
+    dctx.drawImage(img,0,0,1,h,x-i,y,1,h);
+    dctx.drawImage(img,w-1,0,1,h,x+w-1+i,y,1,h);
+  }
+}
+async function buildPackedAtlas(options={}){
+  const size=options.size ?? (+$('#atlasSize').value);
+  const pad=options.pad ?? (+$('#padding').value||0);
+  const ext=options.ext ?? (+$('#extrude').value||0);
+  const items=[];
+
+  for(const s0 of state.sprites){
+    const s=trimSprite(s0);
+    if(!s)continue;
+    const c=extractSpriteCanvas(s0,true);
+    items.push({s,c,rw:c.width+2*(pad+ext),rh:c.height+2*(pad+ext)});
+  }
+
+  items.sort((a,b)=>b.rw*b.rh-a.rw*a.rh);
+  const packer=new MaxRects(size,size),placed=[];
+
+  for(const it of items){
+    const p=packer.insert(it.rw,it.rh);
+    if(!p){
+      return {ok:false,error:`Packing failed: atlas ${size}×${size} is too small.`};
+    }
+    placed.push({...it,p});
+  }
+
+  const out=document.createElement('canvas');
+  out.width=size;out.height=size;
+  const o=out.getContext('2d');
+  const frames={};
+  const frameList=[];
+  let usedArea=0;
+
+  for(const it of placed){
+    const x=it.p.x+pad+ext;
+    const y=it.p.y+pad+ext;
+    extrudeSprite(out,o,it.c,x,y,ext);
+
+    frames[it.s.name]={
+      frame:{x,y,w:it.c.width,h:it.c.height},
+      rotated:false,
+      trimmed:true,
+      sourceSize:{w:it.s.w,h:it.s.h},
+      spriteSourceSize:{x:0,y:0,w:it.c.width,h:it.c.height}
+    };
+
+    frameList.push({
+      id:it.s.id,
+      name:it.s.name,
+      x,y,w:it.c.width,h:it.c.height,
+      packedX:it.p.x,packedY:it.p.y,
+      packedW:it.rw,packedH:it.rh
+    });
+    usedArea+=it.rw*it.rh;
+  }
+
+  const atlas={
+    frames,
+    meta:{
+      app:'Sprite Atlas Cleaner',
+      version:'1.2.1',
+      image:'atlas.png',
+      format:'RGBA8888',
+      size:{w:size,h:size},
+      scale:'1'
+    }
+  };
+
+  const segmentation={
+    schemaVersion:'1.0',
+    source:{width:state.imageData.width,height:state.imageData.height},
+    sprites:state.sprites.map(s=>({
+      id:s.name,
+      sourceBounds:{x:s.x,y:s.y,w:s.w,h:s.h},
+      area:s.area
+    }))
+  };
+
+  return {
+    ok:true,
+    canvas:out,
+    atlas,
+    segmentation,
+    frameList,
+    size,pad,ext,
+    spriteCount:placed.length,
+    usedArea,
+    occupancy:usedArea/(size*size)
+  };
+}
+
+async function exportAllSpritePNGs(){
+  if(!state.sprites.length){
+    setStatus('No sprites available to export.','statusWarn');
+    return;
+  }
+
+  const files=[];
+  const usedNames=new Map();
+
+  for(let i=0;i<state.sprites.length;i++){
+    const s=state.sprites[i];
+    const c=extractSpriteCanvas(s,true);
+    if(!c.width || !c.height) continue;
+
+    const blob=await canvasBlob(c);
+    if(!blob) continue;
+
+    let base=safeName(s.name || `sprite_${String(i+1).padStart(3,'0')}`);
+    const count=(usedNames.get(base)||0)+1;
+    usedNames.set(base,count);
+    if(count>1) base=`${base}_${count}`;
+
+    files.push({
+      name:`sprites/${base}.png`,
+      bytes:await blobToBytes(blob)
+    });
+  }
+
+  if(!files.length){
+    setStatus('No non-empty sprite masks could be exported.','statusWarn');
+    return;
+  }
+
+  const zipBlob=await makeZip(files);
+  downloadBlob(zipBlob,'all-sprites-png.zip');
+  setStatus(`Exported ${files.length} individual sprite PNGs to all-sprites-png.zip.`,'statusGood');
+}
+
+async function exportPackedResult(result, modeOverride=null){
+  if(!result?.ok)return;
+
+  const pngBlob=await canvasBlob(result.canvas);
+  if(!pngBlob){
+    setStatus('Could not encode atlas PNG.','statusWarn');
+    return;
+  }
+
+  const exportMode=modeOverride ?? $('#exportMode').value;
+
+  if(exportMode==='sprites'){
+    await exportAllSpritePNGs();
+    return;
+  }
+
+  if(exportMode==='png'){
+    downloadBlob(pngBlob,'atlas.png');
+    setStatus(`Packed ${result.spriteCount} sprites into ${result.size}×${result.size}. Exported atlas.png.`,'statusGood');
+    return;
+  }
+
+  const jsonEnc=new TextEncoder();
+  const zipBlob=await makeZip([
+    {name:'atlas.png',bytes:await blobToBytes(pngBlob)},
+    {name:'atlas.json',bytes:jsonEnc.encode(JSON.stringify(result.atlas,null,2))},
+    {name:'segmentation.json',bytes:jsonEnc.encode(JSON.stringify(result.segmentation,null,2))}
+  ]);
+
+  downloadBlob(zipBlob,'sprite-atlas-export.zip');
+  setStatus(`Packed ${result.spriteCount} sprites into ${result.size}×${result.size}. Exported sprite-atlas-export.zip.`,'statusGood');
+}
+
+async function packExport(){
+  if($('#exportMode').value==='sprites'){
+    await exportAllSpritePNGs();
+    return;
+  }
+
+  const result=await buildPackedAtlas();
+  if(!result.ok){
+    setStatus(result.error,'statusWarn');
+    return;
+  }
+  await exportPackedResult(result);
+}
+
+function setPreviewOpen(open){
+  const overlay=$('#previewOverlay');
+  overlay.classList.toggle('open',open);
+  overlay.setAttribute('aria-hidden',open?'false':'true');
+}
+
+function resizePreviewCanvas(){
+  const pc=$('#previewCanvas');
+  const r=pc.getBoundingClientRect();
+  pc.width=Math.max(1,Math.floor(r.width*devicePixelRatio));
+  pc.height=Math.max(1,Math.floor(r.height*devicePixelRatio));
+  renderPackedPreview();
+}
+
+function fitPackedPreview(){
+  const result=state.packedPreview;
+  if(!result)return;
+  const pc=$('#previewCanvas');
+  const r=pc.getBoundingClientRect();
+  state.previewFitZoom=Math.min(r.width/result.size,r.height/result.size)*0.94;
+  state.previewZoom=state.previewFitZoom;
+  state.previewPanX=(r.width-result.size*state.previewZoom)/2;
+  state.previewPanY=(r.height-result.size*state.previewZoom)/2;
+  renderPackedPreview();
+}
+
+function renderPackedPreview(){
+  const result=state.packedPreview;
+  if(!result)return;
+
+  const pc=$('#previewCanvas');
+  const pctx=pc.getContext('2d');
+  const dpr=devicePixelRatio||1;
+
+  pctx.setTransform(1,0,0,1,0,0);
+  pctx.clearRect(0,0,pc.width,pc.height);
+
+  pctx.setTransform(
+    dpr*state.previewZoom,0,0,dpr*state.previewZoom,
+    dpr*state.previewPanX,dpr*state.previewPanY
+  );
+  pctx.drawImage(result.canvas,0,0);
+
+  const showFrames=$('#previewShowFrames').checked;
+  const showNames=$('#previewShowNames').checked;
+
+  if(showFrames || showNames){
+    pctx.lineWidth=1.5/state.previewZoom;
+    pctx.font=`${Math.max(10,12/state.previewZoom)}px sans-serif`;
+
+    for(const f of result.frameList){
+      const hover=f.id===state.previewHoverId;
+
+      if(showFrames){
+        pctx.strokeStyle=hover?'#66d9ef':'rgba(255,255,255,.58)';
+        pctx.setLineDash(hover?[]:[4/state.previewZoom,4/state.previewZoom]);
+        pctx.strokeRect(f.x-.5,f.y-.5,f.w+1,f.h+1);
+      }
+
+      if(showNames){
+        pctx.setLineDash([]);
+        const fontPx=12/state.previewZoom;
+        pctx.font=`${fontPx}px sans-serif`;
+        const tw=pctx.measureText(f.name).width;
+        const th=fontPx+4/state.previewZoom;
+        const tx=f.x;
+        const ty=Math.max(th,f.y);
+        pctx.fillStyle='rgba(0,0,0,.72)';
+        pctx.fillRect(tx,ty-th,tw+6/state.previewZoom,th);
+        pctx.fillStyle='#fff';
+        pctx.fillText(f.name,tx+3/state.previewZoom,ty-3/state.previewZoom);
+      }
+    }
+    pctx.setLineDash([]);
+  }
+}
+
+function previewScreenToAtlas(clientX,clientY){
+  const pc=$('#previewCanvas');
+  const r=pc.getBoundingClientRect();
+  return {
+    x:(clientX-r.left-state.previewPanX)/state.previewZoom,
+    y:(clientY-r.top-state.previewPanY)/state.previewZoom
+  };
+}
+
+function previewHitTest(ax,ay){
+  const result=state.packedPreview;
+  if(!result)return null;
+  for(let i=result.frameList.length-1;i>=0;i--){
+    const f=result.frameList[i];
+    if(ax>=f.x&&ay>=f.y&&ax<f.x+f.w&&ay<f.y+f.h)return f;
+  }
+  return null;
+}
+
+function syncPreviewControlsFromMain(){
+  $('#previewAtlasSize').value=$('#atlasSize').value;
+  $('#previewPadding').value=$('#padding').value;
+  $('#previewExtrude').value=$('#extrude').value;
+  $('#previewExportMode').value=$('#exportMode').value;
+}
+
+function syncMainControlsFromPreview(){
+  $('#atlasSize').value=$('#previewAtlasSize').value;
+  $('#padding').value=$('#previewPadding').value;
+  $('#extrude').value=$('#previewExtrude').value;
+  $('#exportMode').value=$('#previewExportMode').value;
+}
+
+async function repackPreview(){
+  const options={
+    size:+$('#previewAtlasSize').value,
+    pad:+$('#previewPadding').value||0,
+    ext:+$('#previewExtrude').value||0
+  };
+
+  const result=await buildPackedAtlas(options);
+  if(!result.ok){
+    setStatus(result.error,'statusWarn');
+    return false;
+  }
+
+  state.packedPreview=result;
+  state.previewHoverId=null;
+  updatePreviewInfo(result);
+
+  syncMainControlsFromPreview();
+
+  requestAnimationFrame(()=>{
+    resizePreviewCanvas();
+    fitPackedPreview();
+  });
+
+  setStatus(`Repacked preview: ${result.spriteCount} sprites, ${(result.occupancy*100).toFixed(1)}% occupancy.`,'statusGood');
+  return true;
+}
+
+function updatePreviewInfo(result){
+  $('#previewSizeInfo').textContent=`${result.size}×${result.size}`;
+  $('#previewSpriteCount').textContent=result.spriteCount;
+  $('#previewUsedArea').textContent=`${result.usedArea.toLocaleString()} px²`;
+  $('#previewOccupancy').textContent=`${(result.occupancy*100).toFixed(1)}%`;
+  $('#previewPaddingInfo').textContent=`${result.pad}px`;
+  $('#previewExtrudeInfo').textContent=`${result.ext}px`;
+  $('#previewHoverInfo').textContent='Hover a sprite to inspect its packed frame.';
+}
+
+async function openPackedPreview(){
+  syncPreviewControlsFromMain();
+  setPreviewOpen(true);
+
+  const ok=await repackPreview();
+  if(!ok){
+    setPreviewOpen(false);
+    return;
+  }
+
+  setStatus(`Previewing packed atlas: ${state.packedPreview.spriteCount} sprites, ${(state.packedPreview.occupancy*100).toFixed(1)}% occupancy.`,'statusGood');
+}
+
+$('#previewPackBtn').onclick=openPackedPreview;
+$('#previewFitBtn').onclick=fitPackedPreview;
+$('#previewCloseBtn').onclick=()=>setPreviewOpen(false);
+$('#previewShowFrames').onchange=renderPackedPreview;
+$('#previewShowNames').onchange=renderPackedPreview;
+$('#previewRepackBtn').onclick=repackPreview;
+
+$('#previewExportBtn').onclick=async()=>{
+  if(!state.packedPreview)return;
+  syncMainControlsFromPreview();
+  await exportPackedResult(state.packedPreview,$('#previewExportMode').value);
+};
+
+['previewAtlasSize','previewPadding','previewExtrude'].forEach(id=>{
+  $('#'+id).addEventListener('change',()=>{
+    if($('#previewAutoRepack').checked) repackPreview();
+  });
+  $('#'+id).addEventListener('input',()=>{
+    if($('#previewAutoRepack').checked) repackPreview();
+  });
+});
+
+$('#previewExportMode').addEventListener('change',()=>{
+  $('#exportMode').value=$('#previewExportMode').value;
+});
+$('#previewOverlay').addEventListener('pointerdown',e=>{
+  if(e.target===$('#previewOverlay')) setPreviewOpen(false);
+});
+
+const previewCanvas=$('#previewCanvas');
+new ResizeObserver(()=>resizePreviewCanvas()).observe($('#previewStageWrap'));
+
+previewCanvas.addEventListener('wheel',e=>{
+  if(!state.packedPreview)return;
+  e.preventDefault();
+
+  const r=previewCanvas.getBoundingClientRect();
+  const mx=e.clientX-r.left,my=e.clientY-r.top;
+  const beforeX=(mx-state.previewPanX)/state.previewZoom;
+  const beforeY=(my-state.previewPanY)/state.previewZoom;
+
+  const factor=Math.exp(-e.deltaY*0.0012);
+  state.previewZoom=Math.max(0.03,Math.min(16,state.previewZoom*factor));
+  state.previewPanX=mx-beforeX*state.previewZoom;
+  state.previewPanY=my-beforeY*state.previewZoom;
+  renderPackedPreview();
+},{passive:false});
+
+previewCanvas.addEventListener('pointerdown',e=>{
+  if(!state.packedPreview)return;
+  if(e.button===1 || (e.button===0 && e.altKey)){
+    previewCanvas.setPointerCapture(e.pointerId);
+    state.previewDragging=true;
+    state.previewLastX=e.clientX;
+    state.previewLastY=e.clientY;
+  }
+});
+
+previewCanvas.addEventListener('pointermove',e=>{
+  if(!state.packedPreview)return;
+
+  if(state.previewDragging){
+    state.previewPanX+=e.clientX-state.previewLastX;
+    state.previewPanY+=e.clientY-state.previewLastY;
+    state.previewLastX=e.clientX;
+    state.previewLastY=e.clientY;
+    renderPackedPreview();
+    return;
+  }
+
+  const p=previewScreenToAtlas(e.clientX,e.clientY);
+  const f=previewHitTest(p.x,p.y);
+  const nextId=f?.id||null;
+
+  if(nextId!==state.previewHoverId){
+    state.previewHoverId=nextId;
+    if(f){
+      $('#previewHoverInfo').innerHTML=
+        `<b>${escapeHtml(f.name)}</b><br>`+
+        `Frame: x ${f.x}, y ${f.y}, ${f.w}×${f.h}<br>`+
+        `Packed footprint: ${f.packedW}×${f.packedH}`;
+    }else{
+      $('#previewHoverInfo').textContent='Hover a sprite to inspect its packed frame.';
+    }
+    renderPackedPreview();
+  }
+});
+
+previewCanvas.addEventListener('pointerup',()=>{
+  state.previewDragging=false;
+});
+previewCanvas.addEventListener('pointercancel',()=>{
+  state.previewDragging=false;
+});
+
+$('#packBtn').onclick=packExport;
+
+
+// Photoshop/Blender-style number scrubbing:
+// - normal click still focuses the field for typing;
+// - left-drag horizontally changes the value;
+// - a small movement threshold prevents accidental scrubbing on simple clicks.
+function initNumberScrub(root=document){
+  root.querySelectorAll('input[type="number"]').forEach(input=>{
+    if(input.dataset.scrubBound==='1')return;
+    input.dataset.scrubBound='1';
+    let active=false;
+    let scrubbing=false;
+    let startX=0;
+    let startValue=0;
+    let pointerId=null;
+
+    const clamp=(v)=>{
+      const min=input.min!=='' ? Number(input.min) : -Infinity;
+      const max=input.max!=='' ? Number(input.max) : Infinity;
+      return Math.min(max,Math.max(min,v));
+    };
+
+    const decimalsForStep=(step)=>{
+      const s=String(step);
+      if(s.includes('e-')) return Number(s.split('e-')[1])||0;
+      const dot=s.indexOf('.');
+      return dot<0?0:s.length-dot-1;
+    };
+
+    input.addEventListener('pointerdown',e=>{
+      if(e.button!==0)return;
+      active=true;
+      scrubbing=false;
+      startX=e.clientX;
+      startValue=Number(input.value);
+      if(!Number.isFinite(startValue)) startValue=0;
+      pointerId=e.pointerId;
+    });
+
+    input.addEventListener('pointermove',e=>{
+      if(!active || e.pointerId!==pointerId)return;
+      const dx=e.clientX-startX;
+
+      if(!scrubbing){
+        if(Math.abs(dx)<4)return;
+        scrubbing=true;
+        input.setPointerCapture?.(pointerId);
+        document.body.classList.add('numberScrubbing');
+        input.blur();
+      }
+
+      e.preventDefault();
+
+      const stepAttr=input.step;
+      const step=(stepAttr && stepAttr!=='any' && Number(stepAttr)>0) ? Number(stepAttr) : 1;
+      const pxPerStep=4;
+      let units=dx/pxPerStep;
+
+      // Shift = finer, Ctrl/Meta = faster.
+      if(e.shiftKey) units*=0.1;
+      if(e.ctrlKey||e.metaKey) units*=10;
+
+      let next=startValue + units*step;
+      const decimals=decimalsForStep(step);
+      if(decimals===0) next=Math.round(next);
+      else next=Number(next.toFixed(Math.min(8,decimals)));
+
+      next=clamp(next);
+
+      if(String(next)!==input.value){
+        input.value=String(next);
+        input.dispatchEvent(new Event('input',{bubbles:true}));
+        input.dispatchEvent(new Event('change',{bubbles:true}));
+        setStatus(`${input.closest('label')?.childNodes[0]?.textContent?.trim()||'Value'}: ${next}`);
+        render();
+      }
+    });
+
+    const finish=e=>{
+      if(!active || (pointerId!==null && e.pointerId!==undefined && e.pointerId!==pointerId))return;
+      active=false;
+      if(scrubbing){
+        e.preventDefault?.();
+        try{input.releasePointerCapture?.(pointerId)}catch{}
+        document.body.classList.remove('numberScrubbing');
+        // Prevent the scrub gesture from immediately placing a text caret.
+        setTimeout(()=>input.blur(),0);
+      }
+      scrubbing=false;
+      pointerId=null;
+    };
+
+    input.addEventListener('pointerup',finish);
+    input.addEventListener('pointercancel',finish);
+  });
+}
+initNumberScrub();
+
+window.addEventListener('keydown',e=>{
+  const tag=document.activeElement?.tagName||'';
+  const typing=tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA';
+
+  if(e.key==='F1' || (!typing && e.key==='?')){
+    e.preventDefault();
+    setHelpOpen(true);
+    return;
+  }
+  if(e.key==='Escape' && $('#previewOverlay').classList.contains('open')){
+    setPreviewOpen(false);
+    return;
+  }
+  if(e.key==='Escape' && $('#helpOverlay').classList.contains('open')){
+    setHelpOpen(false);
+    return;
+  }
+
+  if((e.key==='Delete'||e.key==='Backspace') && !typing) $('#deleteBtn').click();
+  if((e.key==='m'||e.key==='M') && !typing && !$('#mergeBtn').disabled) mergeSelected();
+
+  if(!typing && (e.key==='v'||e.key==='V'||e.key==='Escape')) setTool('select');
+  if(!typing && (e.key==='e'||e.key==='E') && !$('#eraseBtn').disabled) setTool('erase');
+  if(!typing && (e.key==='r'||e.key==='R') && !$('#restoreBtn').disabled) setTool('restore');
+});
+
+})();
+</script>
+</body>
+</html>

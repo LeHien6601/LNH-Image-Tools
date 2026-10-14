@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Video → Sprite Sheet</title>
+<style>
+  :root{
+    --bg:#111318;
+    --panel:#1a1e25;
+    --panel2:#202631;
+    --line:#303745;
+    --text:#f3f5f7;
+    --muted:#9ba6b4;
+    --accent:#5ea1ff;
+    --accent2:#78b2ff;
+    --danger:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  .app{
+    width:min(1200px, calc(100% - 32px));
+    margin:24px auto 48px;
+  }
+  h1{
+    margin:0 0 6px;
+    font-size:28px;
+    letter-spacing:-.02em;
+  }
+  .sub{
+    color:var(--muted);
+    margin-bottom:20px;
+    line-height:1.5;
+  }
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:18px;
+    margin-bottom:16px;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(5,minmax(120px,1fr));
+    gap:12px;
+    align-items:end;
+  }
+  .field{display:flex;flex-direction:column;gap:7px}
+  label{
+    color:var(--muted);
+    font-size:12px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
+  input,select,button{
+    min-height:42px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:var(--panel2);
+    color:var(--text);
+    padding:0 12px;
+    font:inherit;
+  }
+  input[type=file]{padding:9px 10px}
+  input[type=range]{padding:0}
+  button{
+    cursor:pointer;
+    font-weight:800;
+    transition:.15s ease;
+  }
+  button:hover:not(:disabled){
+    transform:translateY(-1px);
+    border-color:#4b5c73;
+  }
+  button.primary{
+    background:var(--accent);
+    color:#08111f;
+    border-color:transparent;
+  }
+  button.primary:hover:not(:disabled){background:var(--accent2)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .actions{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-top:14px;
+  }
+  .status{
+    margin-top:12px;
+    color:var(--muted);
+    font-size:13px;
+    min-height:20px;
+  }
+  .status.error{color:var(--danger)}
+  .meta{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:8px;
+    margin-top:14px;
+  }
+  .meta > div{
+    border:1px solid var(--line);
+    background:#161a20;
+    border-radius:10px;
+    padding:10px 12px;
+    color:var(--muted);
+    font-size:12px;
+  }
+  .meta b{
+    display:block;
+    color:var(--text);
+    font-size:14px;
+    margin-top:2px;
+  }
+  .previewWrap{
+    overflow:auto;
+    max-height:70vh;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:
+      linear-gradient(45deg,#161a20 25%,transparent 25%),
+      linear-gradient(-45deg,#161a20 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#161a20 75%),
+      linear-gradient(-45deg,transparent 75%,#161a20 75%),
+      #20252d;
+    background-size:24px 24px;
+    background-position:0 0,0 12px,12px -12px,-12px 0;
+    padding:12px;
+  }
+  canvas{
+    display:block;
+    max-width:none;
+    image-rendering:auto;
+  }
+  video{display:none}
+  .hint{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:10px;
+    line-height:1.5;
+  }
+  .progressOuter{
+    height:7px;
+    border-radius:999px;
+    overflow:hidden;
+    background:#0f1217;
+    border:1px solid var(--line);
+    margin-top:12px;
+  }
+  .progressInner{
+    height:100%;
+    width:0%;
+    background:var(--accent);
+    transition:width .1s linear;
+  }
+  @media(max-width:900px){
+    .grid{grid-template-columns:repeat(2,1fr)}
+    .meta{grid-template-columns:repeat(2,1fr)}
+  }
+  @media(max-width:560px){
+    .app{width:min(100% - 20px,1200px);margin-top:14px}
+    .grid,.meta{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Video → Sprite Sheet</h1>
+  <div class="sub">
+    Load a local video, choose how many evenly-spaced frames to capture, then export them as one PNG sprite sheet.
+  </div>
+
+  <div class="panel">
+    <div class="grid">
+      <div class="field" style="grid-column:span 2">
+        <label>Video file</label>
+        <input id="videoFile" type="file" accept="video/*" />
+      </div>
+
+      <div class="field">
+        <label>Frame count</label>
+        <input id="frameCount" type="number" min="1" max="1000" value="16" />
+      </div>
+
+      <div class="field">
+        <label>Columns</label>
+        <input id="columns" type="number" min="1" max="1000" value="4" />
+      </div>
+
+      <div class="field">
+        <label>Frame scale</label>
+        <select id="scale">
+          <option value="1">100%</option>
+          <option value="0.75">75%</option>
+          <option value="0.5" selected>50%</option>
+          <option value="0.25">25%</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="generate" class="primary" disabled>Generate Sprite Sheet</button>
+      <button id="download" disabled>Download PNG</button>
+      <button id="downloadJson" disabled>Download JSON</button>
+    </div>
+
+    <div class="progressOuter"><div id="progress" class="progressInner"></div></div>
+    <div id="status" class="status">Select a video to begin.</div>
+
+    <div class="meta">
+      <div>Video size<b id="videoSize">—</b></div>
+      <div>Duration<b id="duration">—</b></div>
+      <div>Frame size<b id="frameSize">—</b></div>
+      <div>Sheet size<b id="sheetSize">—</b></div>
+    </div>
+
+    <div class="hint">
+      Frames are sampled evenly across the whole video. Seeking includes browser-safe fallbacks so export will not hang on a paused video.
+      JSON export contains frame rectangles suitable for custom Phaser/Three.js loading logic.
+    </div>
+  </div>
+
+  <div class="panel">
+    <label>Sprite sheet preview</label>
+    <div class="previewWrap" style="margin-top:10px">
+      <canvas id="sheetCanvas" width="1" height="1"></canvas>
+    </div>
+  </div>
+
+  <video id="video" preload="metadata" muted playsinline></video>
+  <canvas id="captureCanvas" width="1" height="1" style="display:none"></canvas>
+</div>
+
+<script>
+(() => {
+  const videoFile = document.getElementById('videoFile');
+  const frameCountInput = document.getElementById('frameCount');
+  const columnsInput = document.getElementById('columns');
+  const scaleSelect = document.getElementById('scale');
+  const generateBtn = document.getElementById('generate');
+  const downloadBtn = document.getElementById('download');
+  const downloadJsonBtn = document.getElementById('downloadJson');
+  const video = document.getElementById('video');
+  const captureCanvas = document.getElementById('captureCanvas');
+  const captureCtx = captureCanvas.getContext('2d', { alpha: true });
+  const sheetCanvas = document.getElementById('sheetCanvas');
+  const sheetCtx = sheetCanvas.getContext('2d', { alpha: true });
+  const statusEl = document.getElementById('status');
+  const progressEl = document.getElementById('progress');
+
+  const videoSizeEl = document.getElementById('videoSize');
+  const durationEl = document.getElementById('duration');
+  const frameSizeEl = document.getElementById('frameSize');
+  const sheetSizeEl = document.getElementById('sheetSize');
+
+  let objectUrl = null;
+  let outputBlob = null;
+  let outputJson = null;
+  let baseName = 'spritesheet';
+
+  function setStatus(text, isError = false) {
+    statusEl.textContent = text;
+    statusEl.classList.toggle('error', isError);
+  }
+
+  function setProgress(value) {
+    progressEl.style.width = `${Math.max(0, Math.min(100, value))}%`;
+  }
+
+  function once(target, eventName) {
+    return new Promise((resolve, reject) => {
+      const onOk = () => {
+        cleanup();
+        resolve();
+      };
+      const onError = () => {
+        cleanup();
+        reject(new Error(`Video event failed: ${eventName}`));
+      };
+      const cleanup = () => {
+        target.removeEventListener(eventName, onOk);
+        target.removeEventListener('error', onError);
+      };
+      target.addEventListener(eventName, onOk, { once: true });
+      target.addEventListener('error', onError, { once: true });
+    });
+  }
+
+  function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function seekVideo(time) {
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    const safeEnd = Math.max(0, duration - 0.02);
+    const target = Math.max(0, Math.min(time, safeEnd));
+
+    if (Math.abs(video.currentTime - target) >= 0.0005 || video.readyState < 2) {
+      await new Promise((resolve, reject) => {
+        let done = false;
+
+        const cleanup = () => {
+          video.removeEventListener('seeked', onSeeked);
+          video.removeEventListener('error', onError);
+          clearTimeout(timeoutId);
+        };
+
+        const finish = () => {
+          if (done) return;
+          done = true;
+          cleanup();
+          resolve();
+        };
+
+        const onSeeked = () => finish();
+
+        const onError = () => {
+          if (done) return;
+          done = true;
+          cleanup();
+          reject(new Error('Video seek failed.'));
+        };
+
+        // Never allow a browser/video codec to block the whole export forever.
+        const timeoutId = setTimeout(finish, 2000);
+
+        video.addEventListener('seeked', onSeeked, { once: true });
+        video.addEventListener('error', onError, { once: true });
+
+        try {
+          if (typeof video.fastSeek === 'function') {
+            video.fastSeek(target);
+          } else {
+            video.currentTime = target;
+          }
+        } catch (err) {
+          cleanup();
+          reject(err);
+        }
+      });
+    }
+
+    // Give the decoded video frame a moment to reach the drawable surface.
+    // requestVideoFrameCallback can stall forever on paused videos in some browsers,
+    // so it is used only with a short fallback timeout.
+    if (typeof video.requestVideoFrameCallback === 'function') {
+      await new Promise(resolve => {
+        let finished = false;
+        const finish = () => {
+          if (finished) return;
+          finished = true;
+          resolve();
+        };
+
+        video.requestVideoFrameCallback(finish);
+        setTimeout(finish, 120);
+      });
+    } else {
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+    }
+  }
+
+  function updateEstimates() {
+    if (!video.videoWidth || !video.videoHeight) return;
+
+    const scale = parseFloat(scaleSelect.value) || 1;
+    const count = Math.max(1, parseInt(frameCountInput.value || '1', 10));
+    const columns = Math.max(1, Math.min(count, parseInt(columnsInput.value || '1', 10)));
+
+    const fw = Math.max(1, Math.round(video.videoWidth * scale));
+    const fh = Math.max(1, Math.round(video.videoHeight * scale));
+    const rows = Math.ceil(count / columns);
+
+    frameSizeEl.textContent = `${fw} × ${fh}`;
+    sheetSizeEl.textContent = `${fw * columns} × ${fh * rows}`;
+  }
+
+  function validateCanvasSize(width, height) {
+    // Conservative browser-safe guard.
+    const maxDimension = 16384;
+    const maxPixels = 100_000_000;
+
+    if (width > maxDimension || height > maxDimension || width * height > maxPixels) {
+      throw new Error(
+        `Sprite sheet too large (${width}×${height}). Reduce frame count, columns, or scale.`
+      );
+    }
+  }
+
+  videoFile.addEventListener('change', async () => {
+    const file = videoFile.files?.[0];
+    outputBlob = null;
+    outputJson = null;
+    downloadBtn.disabled = true;
+    downloadJsonBtn.disabled = true;
+    setProgress(0);
+
+    if (!file) {
+      generateBtn.disabled = true;
+      setStatus('Select a video to begin.');
+      return;
+    }
+
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = URL.createObjectURL(file);
+    baseName = file.name.replace(/\.[^.]+$/, '') || 'spritesheet';
+
+    generateBtn.disabled = true;
+    setStatus('Loading video metadata...');
+
+    video.src = objectUrl;
+
+    try {
+      if (video.readyState < 1) await once(video, 'loadedmetadata');
+
+      videoSizeEl.textContent = `${video.videoWidth} × ${video.videoHeight}`;
+      durationEl.textContent = `${video.duration.toFixed(3)} s`;
+      updateEstimates();
+
+      generateBtn.disabled = false;
+      setStatus('Ready.');
+    } catch (err) {
+      console.error(err);
+      setStatus('Could not load this video.', true);
+    }
+  });
+
+  [frameCountInput, columnsInput, scaleSelect].forEach(el => {
+    el.addEventListener('input', updateEstimates);
+    el.addEventListener('change', updateEstimates);
+  });
+
+  generateBtn.addEventListener('click', async () => {
+    if (!videoFile.files?.[0] || !video.videoWidth) return;
+
+    const count = Math.max(1, Math.min(1000, parseInt(frameCountInput.value || '1', 10)));
+    const columns = Math.max(1, Math.min(count, parseInt(columnsInput.value || '1', 10)));
+    const rows = Math.ceil(count / columns);
+    const scale = parseFloat(scaleSelect.value) || 1;
+
+    frameCountInput.value = count;
+    columnsInput.value = columns;
+
+    const frameWidth = Math.max(1, Math.round(video.videoWidth * scale));
+    const frameHeight = Math.max(1, Math.round(video.videoHeight * scale));
+    const sheetWidth = frameWidth * columns;
+    const sheetHeight = frameHeight * rows;
+
+    try {
+      validateCanvasSize(sheetWidth, sheetHeight);
+
+      generateBtn.disabled = true;
+      downloadBtn.disabled = true;
+      downloadJsonBtn.disabled = true;
+      setProgress(0);
+      setStatus(`Generating ${count} frames...`);
+
+      video.pause();
+
+      captureCanvas.width = frameWidth;
+      captureCanvas.height = frameHeight;
+      sheetCanvas.width = sheetWidth;
+      sheetCanvas.height = sheetHeight;
+      sheetCtx.clearRect(0, 0, sheetWidth, sheetHeight);
+
+      const duration = Math.max(0, video.duration || 0);
+      const endTime = Math.max(0, duration - Math.min(0.02, duration * 0.001));
+      const frames = [];
+
+      for (let i = 0; i < count; i++) {
+        const t = count === 1 ? 0 : (i / (count - 1)) * endTime;
+        await seekVideo(t);
+
+        captureCtx.clearRect(0, 0, frameWidth, frameHeight);
+        captureCtx.drawImage(video, 0, 0, frameWidth, frameHeight);
+
+        const col = i % columns;
+        const row = Math.floor(i / columns);
+        const x = col * frameWidth;
+        const y = row * frameHeight;
+
+        sheetCtx.drawImage(captureCanvas, x, y);
+
+        frames.push({
+          index: i,
+          time: Number(t.toFixed(6)),
+          x,
+          y,
+          width: frameWidth,
+          height: frameHeight
+        });
+
+        const percent = ((i + 1) / count) * 100;
+        setProgress(percent);
+        setStatus(`Captured frame ${i + 1} / ${count} — ${t.toFixed(3)}s`);
+        await new Promise(requestAnimationFrame);
+      }
+
+      outputJson = {
+        source: videoFile.files[0].name,
+        duration,
+        frameCount: count,
+        columns,
+        rows,
+        frameWidth,
+        frameHeight,
+        sheetWidth,
+        sheetHeight,
+        frames
+      };
+
+      outputBlob = await new Promise((resolve, reject) => {
+        sheetCanvas.toBlob(blob => {
+          if (blob) resolve(blob);
+          else reject(new Error('Failed to encode PNG.'));
+        }, 'image/png');
+      });
+
+      downloadBtn.disabled = false;
+      downloadJsonBtn.disabled = false;
+      setStatus(`Done — ${count} frames, ${columns} columns, ${rows} rows.`);
+      setProgress(100);
+    } catch (err) {
+      console.error(err);
+      setStatus(err.message || 'Failed to generate sprite sheet.', true);
+      setProgress(0);
+    } finally {
+      generateBtn.disabled = false;
+    }
+  });
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  downloadBtn.addEventListener('click', () => {
+    if (!outputBlob) return;
+    downloadBlob(outputBlob, `${baseName}-spritesheet.png`);
+  });
+
+  downloadJsonBtn.addEventListener('click', () => {
+    if (!outputJson) return;
+    const jsonBlob = new Blob([JSON.stringify(outputJson, null, 2)], {
+      type: 'application/json'
+    });
+    downloadBlob(jsonBlob, `${baseName}-spritesheet.json`);
+  });
+})();
+</script>
+</body>
+</html>

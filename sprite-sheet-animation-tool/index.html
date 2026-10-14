@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Sprite Sheet Animation Tool</title>
+<style>
+:root{
+  --bg:#0f1318;--panel:#151b22;--panel2:#10151a;--line:#2a333d;--line2:#3a4652;
+  --text:#eef4fa;--muted:#9fb1c3;--accent:#55c7ff;--accent2:#7ee0ff;--good:#67e8a5;
+  --danger:#ff7a90;--field:#0d1217;--button:#202933;--buttonHover:#2a3642;
+  --sidebar:240px;--inspector:290px;--toolbar:44px;--preview:36vh;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:13px/1.35 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;overflow:hidden}
+button,input{font:inherit}
+button{color:var(--text);background:var(--button);border:1px solid var(--line2);border-radius:8px;padding:8px 11px;cursor:pointer}
+button:hover{background:var(--buttonHover)}
+button.primary{border-color:#348fba;background:#173747}
+button.danger{color:#ffd7de}
+input[type="number"],input[type="text"]{width:100%;background:var(--field);border:1px solid var(--line2);border-radius:7px;color:var(--text);padding:7px 8px;outline:none}
+input:focus{border-color:var(--accent)}
+input[type="range"]{accent-color:var(--accent)}
+small,.muted{color:var(--muted)}
+.hidden{display:none!important}
+
+.app{height:100%;display:grid;grid-template-rows:var(--toolbar) minmax(0,1fr) 7px minmax(210px,var(--preview))}
+.topbar{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);background:#12171d}
+.brand{font-weight:750;letter-spacing:.1px;margin-right:auto;white-space:nowrap}
+.badge{font-size:11px;border:1px solid var(--line2);color:var(--muted);border-radius:999px;padding:3px 7px;margin-left:6px}
+.topbar button{padding:7px 10px}
+.workspace{min-height:0;display:grid;grid-template-columns:var(--sidebar) minmax(280px,1fr) var(--inspector)}
+.sidebar,.inspector{background:var(--panel);min-height:0;overflow:auto}
+.sidebar{border-right:1px solid var(--line)}
+.inspector{border-left:1px solid var(--line)}
+.section{padding:14px 12px;border-bottom:1px solid var(--line)}
+.section h3,.preview-head h3{font-size:11px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.11em;color:#cfe7f8}
+.row{display:grid;grid-template-columns:96px 1fr;gap:8px;align-items:center;margin:8px 0}
+.row label{color:var(--muted)}
+.check{display:flex;align-items:center;gap:8px;margin:7px 0;color:#c9d8e5}
+.inline{display:flex;gap:7px}
+.inline>*{min-width:0;flex:1}
+.sheet-stage{position:relative;min-width:0;min-height:0;background:#0b0f13;overflow:hidden}
+.sheet-toolbar{position:absolute;left:10px;top:10px;z-index:5;display:flex;gap:6px}
+.sheet-toolbar button{padding:6px 9px;background:#151d24dd;backdrop-filter:blur(6px)}
+#sheetCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:default}
+.empty-hint{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;text-align:center;color:#708394}
+.empty-hint strong{display:block;color:#b8c8d5;margin-bottom:5px}
+
+.frame-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.frame-title strong{font-size:14px}
+.used-pill{font-size:11px;border:1px solid #2e7052;color:var(--good);padding:2px 7px;border-radius:999px}
+.frame-canvas-wrap{height:190px;border:1px solid var(--line);border-radius:10px;background:#0b1014;overflow:hidden}
+#frameCanvas{width:100%;height:100%;display:block}
+.pivot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.pivot-grid button{padding:7px 5px}
+.stack{display:grid;gap:7px}
+.sep{height:1px;background:var(--line);margin:11px 0}
+
+.preview-splitter{height:7px;cursor:ns-resize;background:#111820;border-top:1px solid var(--line);border-bottom:1px solid #070a0d;position:relative}
+.preview-splitter::after{content:"";position:absolute;left:50%;top:2px;width:44px;height:2px;transform:translateX(-50%);border-radius:4px;background:#43515e}
+.preview{min-height:0;background:#0c1116;display:grid;grid-template-rows:42px minmax(0,1fr) 48px}
+.preview-head{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--line)}
+.preview-head h3{margin:0 auto 0 0}
+.toggle-chip{display:flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid var(--line);border-radius:7px;color:#bdd0df;background:#121820}
+.toggle-chip input{margin:0}
+.scale-wrap{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.scale-wrap input{width:72px}
+.preview-stage{position:relative;min-height:0;overflow:hidden;cursor:grab}
+.preview-stage.dragging{cursor:grabbing}
+#previewCanvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.preview-controls{display:grid;grid-template-columns:auto minmax(120px,1fr) auto;gap:10px;align-items:center;padding:7px 10px;border-top:1px solid var(--line);background:#121820}
+.transport{display:flex;gap:6px}
+.transport button{padding:6px 10px}
+.scrub{display:flex;align-items:center;gap:8px;min-width:0}
+.scrub input{width:100%}
+.status{white-space:nowrap;color:#b9ccda;font-size:12px}
+
+.drop-overlay{position:fixed;inset:0;background:#0a1118dc;display:none;place-items:center;z-index:50;border:4px dashed var(--accent)}
+.drop-overlay.show{display:grid}
+.drop-overlay div{font-size:20px;font-weight:700}
+
+.modal-backdrop{position:fixed;inset:0;background:rgba(4,8,12,.72);display:none;place-items:center;z-index:80;padding:20px}
+.modal-backdrop.show{display:grid}
+.modal{width:min(420px,100%);background:#151b22;border:1px solid var(--line2);border-radius:14px;box-shadow:0 24px 80px rgba(0,0,0,.45);padding:18px}
+.modal h2{font-size:16px;margin:0 0 6px}
+.modal p{margin:0 0 14px;color:var(--muted)}
+.modal .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.modal .field-label{display:block;color:#cfe7f8;font-size:12px;font-weight:650;margin-bottom:7px}
+
+@media(max-width:950px){
+  :root{--sidebar:210px;--inspector:250px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">Sprite Sheet Animation Tool <span class="badge">Single-file editor</span></div>
+    <button id="openBtn" class="primary">Open Sheet</button>
+    <button id="loadJsonBtn">Load JSON</button>
+    <button id="saveJsonBtn">Save JSON</button>
+    <button id="exportZipBtn">Export ZIP</button>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar">
+      <section class="section">
+        <h3>Sheet</h3>
+        <div class="row"><label>Rows</label><input id="rows" type="number" min="1" max="100" value="4"></div>
+        <div class="row"><label>Columns</label><input id="cols" type="number" min="1" max="100" value="4"></div>
+        <div class="row"><label>Used Frames</label><input id="usedFrames" type="number" min="1" value="16"></div>
+        <div class="row"><label>Start Frame</label><input id="startFrame" type="number" min="0" value="0"></div>
+        <div class="inline">
+          <button id="fitBtn">Use All Tiles</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <h3>Animation</h3>
+        <div class="row"><label>Name</label><input id="animName" type="text" value="animation"></div>
+        <div class="row"><label>FPS</label><input id="fps" type="number" min="1" max="120" step="1" value="12"></div>
+        <label class="check"><input id="loop" type="checkbox" checked> Loop</label>
+        <label class="check"><input id="pingpong" type="checkbox"> Ping-pong</label>
+      </section>
+
+      <section class="section">
+        <h3>Sheet View</h3>
+        <div class="row"><label>Zoom</label><input id="zoom" type="range" min="0.1" max="4" step="0.05" value="1"></div>
+        <small>Mouse wheel: zoom · Middle mouse / Space+drag: pan.</small>
+      </section>
+    </aside>
+
+    <section class="sheet-stage" id="sheetStage">
+      <div class="sheet-toolbar">
+        <button id="prevFrameTop">◀</button>
+        <button id="nextFrameTop">▶</button>
+      </div>
+      <canvas id="sheetCanvas"></canvas>
+      <div id="emptyHint" class="empty-hint">
+        <div><strong>Open a sprite sheet</strong>Drop an image here or use “Open Sheet”.</div>
+      </div>
+    </section>
+
+    <aside class="inspector">
+      <section class="section">
+        <h3>Frame</h3>
+        <div class="frame-title"><strong id="frameLabel">Frame #0</strong><span id="usedPill" class="used-pill">used</span></div>
+        <div class="frame-canvas-wrap"><canvas id="frameCanvas"></canvas></div>
+
+        <div class="row"><label>Pivot X</label><input id="pivotX" type="number" min="0" max="1" step="0.001" value="0.5"></div>
+        <div class="row"><label>Pivot Y</label><input id="pivotY" type="number" min="0" max="1" step="0.001" value="0.5"></div>
+
+        <div class="pivot-grid">
+          <button data-px="0" data-py="0">TL</button><button data-px=".5" data-py="0">Top</button><button data-px="1" data-py="0">TR</button>
+          <button data-px="0" data-py=".5">Left</button><button data-px=".5" data-py=".5">Center</button><button data-px="1" data-py=".5">Right</button>
+          <button data-px="0" data-py="1">BL</button><button data-px=".5" data-py="1">Bottom</button><button data-px="1" data-py="1">BR</button>
+        </div>
+
+        <div class="sep"></div>
+        <div class="stack">
+          <button id="copyPrevPivot">Copy Previous Pivot</button>
+          <button id="applyAllPivot">Apply Pivot to All Used</button>
+          <button id="resetPivot">Reset Current Pivot</button>
+          <button id="resetAllPivots" class="danger">Reset All Pivots…</button>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <div id="previewSplitter" class="preview-splitter" title="Drag to resize preview"></div>
+  <section class="preview">
+    <div class="preview-head">
+      <h3>Animation Preview</h3>
+      <label class="toggle-chip"><input id="showPivot" type="checkbox" checked> Pivot</label>
+      <label class="toggle-chip"><input id="showBounds" type="checkbox" checked> Bounds</label>
+      <label class="toggle-chip"><input id="ghostPrev" type="checkbox"> Ghost</label>
+      <div class="scale-wrap" title="Mouse wheel over preview also changes scale">Scale <input id="previewScale" type="number" min=".1" max="8" step=".1" value="1">×</div>
+    </div>
+    <div class="preview-stage"><canvas id="previewCanvas"></canvas></div>
+    <div class="preview-controls">
+      <div class="transport">
+        <button id="prevBtn">◀</button>
+        <button id="playBtn">▶ Play</button>
+        <button id="nextBtn">▶</button>
+      </div>
+      <div class="scrub"><input id="scrubber" type="range" min="0" max="0" value="0" step="1"></div>
+      <div id="status" class="status">No sprite sheet</div>
+    </div>
+  </section>
+</div>
+
+<div id="exportModal" class="modal-backdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+    <h2 id="exportModalTitle">Export Package</h2>
+    <p>Choose the ZIP filename. The animation name inside the JSON will stay unchanged.</p>
+    <label class="field-label" for="exportNameInput">File Name</label>
+    <input id="exportNameInput" type="text" autocomplete="off" spellcheck="false">
+    <div class="actions">
+      <button id="exportCancelBtn">Cancel</button>
+      <button id="exportConfirmBtn" class="primary">Export</button>
+    </div>
+  </div>
+</div>
+
+<div id="dropOverlay" class="drop-overlay"><div>Drop sprite sheet image</div></div>
+
+<input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
+<input id="jsonInput" type="file" accept=".json,application/json" class="hidden">
+
+<script>
+(() => {
+'use strict';
+
+const $ = id => document.getElementById(id);
+const els = {
+  rows:$('rows'), cols:$('cols'), used:$('usedFrames'), start:$('startFrame'),
+  name:$('animName'), fps:$('fps'), loop:$('loop'), pingpong:$('pingpong'), zoom:$('zoom'),
+  pivotX:$('pivotX'), pivotY:$('pivotY'), frameLabel:$('frameLabel'), usedPill:$('usedPill'),
+  sheet:$('sheetCanvas'), frame:$('frameCanvas'), preview:$('previewCanvas'),
+  showPivot:$('showPivot'), showBounds:$('showBounds'), ghost:$('ghostPrev'), previewScale:$('previewScale'),
+  scrub:$('scrubber'), status:$('status'), play:$('playBtn'), empty:$('emptyHint')
+};
+
+const state = {
+  image:null, imageFile:null, imageName:'sprite-sheet.png',
+  selected:0, pivots:[], playing:false, playPos:0, direction:1,
+  lastTime:0, acc:0, sheetScale:1, panX:0, panY:0, panning:false, panStart:null,
+  pointerSpace:false,
+  previewPanX:0, previewPanY:0, previewDragging:false, previewDragStart:null
+};
+
+function n(v, fallback=0){ const x=Number(v); return Number.isFinite(x)?x:fallback; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function rows(){ return Math.max(1,Math.floor(n(els.rows.value,1))); }
+function cols(){ return Math.max(1,Math.floor(n(els.cols.value,1))); }
+function total(){ return rows()*cols(); }
+function start(){ return clamp(Math.floor(n(els.start.value,0)),0,Math.max(0,total()-1)); }
+function used(){ return clamp(Math.floor(n(els.used.value,total())),1,Math.max(1,total()-start())); }
+function lastUsed(){ return start()+used()-1; }
+function isUsed(i){ return i>=start() && i<=lastUsed(); }
+function fw(){ return state.image ? state.image.naturalWidth/cols() : 1; }
+function fh(){ return state.image ? state.image.naturalHeight/rows() : 1; }
+
+function ensurePivots(){
+  const t=total();
+  while(state.pivots.length<t) state.pivots.push({x:.5,y:.5});
+  if(state.pivots.length>t) state.pivots.length=t;
+  state.selected=clamp(state.selected,0,Math.max(0,t-1));
+}
+function pivot(i){ ensurePivots(); return state.pivots[i] || {x:.5,y:.5}; }
+
+function resizeCanvas(c){
+  const r=c.getBoundingClientRect(), dpr=Math.max(1,devicePixelRatio||1);
+  const w=Math.max(1,Math.round(r.width*dpr)), h=Math.max(1,Math.round(r.height*dpr));
+  if(c.width!==w||c.height!==h){c.width=w;c.height=h;}
+  const ctx=c.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); return {ctx,w:r.width,h:r.height,dpr};
+}
+function clear(ctx,w,h){ctx.clearRect(0,0,w,h);}
+
+function fitSheet(){
+  if(!state.image) return;
+  const r=$('sheetStage').getBoundingClientRect();
+  const margin=70;
+  const s=Math.min((r.width-margin)/state.image.naturalWidth,(r.height-margin)/state.image.naturalHeight);
+  state.sheetScale=clamp(s,.1,4);
+  els.zoom.value=state.sheetScale;
+  state.panX=0; state.panY=0;
+  drawAll();
+}
+function sheetTransform(viewW,viewH){
+  const iw=state.image.naturalWidth*state.sheetScale, ih=state.image.naturalHeight*state.sheetScale;
+  return {x:(viewW-iw)/2+state.panX,y:(viewH-ih)/2+state.panY,w:iw,h:ih,s:state.sheetScale};
+}
+function drawSheet(){
+  const {ctx,w,h}=resizeCanvas(els.sheet); clear(ctx,w,h);
+  if(!state.image){els.empty.classList.remove('hidden');return}
+  els.empty.classList.add('hidden');
+  const tr=sheetTransform(w,h), cw=fw()*tr.s, ch=fh()*tr.s;
+  ctx.imageSmoothingEnabled=true;
+  ctx.drawImage(state.image,tr.x,tr.y,tr.w,tr.h);
+  for(let i=0;i<total();i++){
+    const c=i%cols(), r=Math.floor(i/cols()), x=tr.x+c*cw, y=tr.y+r*ch;
+    if(!isUsed(i)){ctx.fillStyle='rgba(5,9,12,.62)';ctx.fillRect(x,y,cw,ch)}
+    ctx.lineWidth=i===state.selected?2:1;
+    ctx.strokeStyle=i===state.selected?'#55c7ff':'rgba(170,200,220,.34)';
+    ctx.strokeRect(x+.5,y+.5,cw-1,ch-1);
+    const fs=clamp(Math.min(cw,ch)*.12,9,13);
+    ctx.font=`600 ${fs}px system-ui`;
+    ctx.fillStyle=i===state.selected?'#dff6ff':'rgba(245,250,255,.9)';
+    ctx.fillText(String(i),x+5,y+fs+3);
+    if(i===currentFrame() && state.playing){
+      ctx.fillStyle='#67e8a5'; ctx.beginPath(); ctx.moveTo(x+cw-15,y+5); ctx.lineTo(x+cw-5,y+10); ctx.lineTo(x+cw-15,y+15); ctx.fill();
+    }
+    if(isUsed(i)){
+      const p=pivot(i), px=x+p.x*cw, py=y+p.y*ch;
+      ctx.strokeStyle='rgba(103,232,165,.8)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(px-4,py);ctx.lineTo(px+4,py);ctx.moveTo(px,py-4);ctx.lineTo(px,py+4);ctx.stroke();
+    }
+  }
+}
+
+function drawFrame(){
+  const {ctx,w,h}=resizeCanvas(els.frame); clear(ctx,w,h);
+  ctx.fillStyle='#0b1014';ctx.fillRect(0,0,w,h);
+  if(!state.image) return;
+  const i=state.selected, c=i%cols(), r=Math.floor(i/cols());
+  const srcW=fw(),srcH=fh(), scale=Math.min((w-30)/srcW,(h-30)/srcH), dw=srcW*scale,dh=srcH*scale,x=(w-dw)/2,y=(h-dh)/2;
+  ctx.drawImage(state.image,c*srcW,r*srcH,srcW,srcH,x,y,dw,dh);
+  ctx.strokeStyle='rgba(170,200,220,.45)';ctx.strokeRect(x+.5,y+.5,dw-1,dh-1);
+  const p=pivot(i),px=x+p.x*dw,py=y+p.y*dh;
+  ctx.strokeStyle='#55c7ff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px-10,py);ctx.lineTo(px+10,py);ctx.moveTo(px,py-10);ctx.lineTo(px,py+10);ctx.stroke();
+  ctx.beginPath();ctx.arc(px,py,3,0,Math.PI*2);ctx.fillStyle='#55c7ff';ctx.fill();
+}
+function drawFrameAt(ctx,i,anchorX,anchorY,scale,alpha=1){
+  if(!state.image||!isUsed(i)) return;
+  const c=i%cols(),r=Math.floor(i/cols()),srcW=fw(),srcH=fh(),p=pivot(i);
+  const dw=srcW*scale,dh=srcH*scale,x=anchorX-p.x*dw,y=anchorY-p.y*dh;
+  ctx.save();ctx.globalAlpha=alpha;
+  ctx.drawImage(state.image,c*srcW,r*srcH,srcW,srcH,x,y,dw,dh);
+  ctx.restore();
+  return {x,y,w:dw,h:dh};
+}
+function currentFrame(){ return clamp(Math.round(state.playPos),start(),lastUsed()); }
+function prevPlaybackFrame(){
+  const i=currentFrame(), s=start(), e=lastUsed();
+  if(i>s) return i-1;
+  if(els.loop.checked) return e;
+  return s;
+}
+function drawPreview(){
+  const {ctx,w,h}=resizeCanvas(els.preview);clear(ctx,w,h);
+  ctx.fillStyle='#0c1116';ctx.fillRect(0,0,w,h);
+  if(!state.image) return;
+  const i=currentFrame(), baseScale=clamp(n(els.previewScale.value,1),.1,8);
+  const scale=Math.max(.05,baseScale);
+  const ax=w/2 + state.previewPanX, ay=h/2 + state.previewPanY;
+  if(els.ghost.checked) drawFrameAt(ctx,prevPlaybackFrame(),ax,ay,scale,.18);
+  const rect=drawFrameAt(ctx,i,ax,ay,scale,1);
+  if(rect&&els.showBounds.checked){
+    ctx.strokeStyle='rgba(170,200,220,.35)';ctx.lineWidth=1;ctx.strokeRect(rect.x+.5,rect.y+.5,rect.w-1,rect.h-1);
+  }
+  if(els.showPivot.checked){
+    ctx.strokeStyle='#67e8a5';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(ax-10,ay);ctx.lineTo(ax+10,ay);ctx.moveTo(ax,ay-10);ctx.lineTo(ax,ay+10);ctx.stroke();
+    ctx.beginPath();ctx.arc(ax,ay,3,0,Math.PI*2);ctx.fillStyle='#67e8a5';ctx.fill();
+  }
+}
+function updateInspector(){
+  ensurePivots();
+  const i=state.selected,p=pivot(i);
+  els.frameLabel.textContent=`Frame #${i}`;
+  els.pivotX.value=p.x.toFixed(3); els.pivotY.value=p.y.toFixed(3);
+  els.usedPill.textContent=isUsed(i)?'used':'unused';
+  els.usedPill.style.color=isUsed(i)?'var(--good)':'var(--muted)';
+  els.usedPill.style.borderColor=isUsed(i)?'#2e7052':'var(--line2)';
+}
+function updatePlaybackUI(){
+  if(!state.image){els.status.textContent='No sprite sheet';els.scrub.max=0;els.scrub.value=0;return}
+  els.scrub.min=start();els.scrub.max=lastUsed();els.scrub.value=currentFrame();
+  els.status.textContent=`Frame ${currentFrame()} / ${lastUsed()} · ${n(els.fps.value,12)} FPS${els.pingpong.checked?' · Ping-pong':els.loop.checked?' · Loop':''}`;
+  els.play.textContent=state.playing?'Ⅱ Pause':'▶ Play';
+}
+function drawAll(){ ensurePivots();updateInspector();updatePlaybackUI();drawSheet();drawFrame();drawPreview(); }
+
+function selectFrame(i, syncPlayback=true){
+  state.selected=clamp(Math.floor(i),0,total()-1);
+  if(syncPlayback && isUsed(state.selected)) state.playPos=state.selected;
+  drawAll();
+}
+function setPivot(x,y){
+  const p=pivot(state.selected);p.x=clamp(n(x,.5),0,1);p.y=clamp(n(y,.5),0,1);drawAll();
+}
+function frameFromSheetPoint(clientX,clientY){
+  if(!state.image) return null;
+  const r=els.sheet.getBoundingClientRect(), tr=sheetTransform(r.width,r.height);
+  const x=clientX-r.left-tr.x,y=clientY-r.top-tr.y;
+  if(x<0||y<0||x>=tr.w||y>=tr.h)return null;
+  const c=Math.floor(x/(fw()*tr.s)), rr=Math.floor(y/(fh()*tr.s));
+  return rr*cols()+c;
+}
+els.sheet.addEventListener('pointerdown',e=>{
+  if(!state.image)return;
+  if(e.button===1 || state.pointerSpace){
+    state.panning=true;state.panStart={x:e.clientX,y:e.clientY,px:state.panX,py:state.panY};els.sheet.setPointerCapture(e.pointerId);return;
+  }
+  const i=frameFromSheetPoint(e.clientX,e.clientY);if(i!=null) selectFrame(i);
+});
+els.sheet.addEventListener('pointermove',e=>{
+  if(state.panning&&state.panStart){
+    state.panX=state.panStart.px+(e.clientX-state.panStart.x);state.panY=state.panStart.py+(e.clientY-state.panStart.y);drawSheet();
+  }
+});
+els.sheet.addEventListener('pointerup',e=>{state.panning=false;state.panStart=null});
+els.sheet.addEventListener('wheel',e=>{
+  if(!state.image)return;e.preventDefault();
+  state.sheetScale=clamp(state.sheetScale*(e.deltaY<0?1.1:.9),.1,4);els.zoom.value=state.sheetScale;drawSheet();
+},{passive:false});
+window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){state.pointerSpace=true;e.preventDefault()}});
+window.addEventListener('keyup',e=>{if(e.code==='Space')state.pointerSpace=false});
+
+els.frame.addEventListener('pointerdown',e=>{
+  if(!state.image)return;
+  const rect=els.frame.getBoundingClientRect(),w=rect.width,h=rect.height,srcW=fw(),srcH=fh(),scale=Math.min((w-30)/srcW,(h-30)/srcH),dw=srcW*scale,dh=srcH*scale,x=(w-dw)/2,y=(h-dh)/2;
+  setPivot((e.clientX-rect.left-x)/dw,(e.clientY-rect.top-y)/dh);
+});
+
+function loadImageFile(file){
+  if(!file)return;
+  const img=new Image(),url=URL.createObjectURL(file);
+  img.onload=()=>{state.image=img;state.imageFile=file;state.imageName=file.name||'sprite-sheet.png';state.selected=start();state.playPos=start();ensurePivots();fitSheet();URL.revokeObjectURL(url)};
+  img.onerror=()=>{URL.revokeObjectURL(url);alert('Could not load image.')};
+  img.src=url;
+}
+$('openBtn').onclick=()=> $('imageInput').click();
+$('imageInput').onchange=e=>loadImageFile(e.target.files[0]);
+
+['rows','cols','usedFrames','startFrame'].forEach(id=>$(id).addEventListener('change',()=>{
+  ensurePivots();
+  els.used.max=Math.max(1,total()-start());
+  els.start.max=Math.max(0,total()-1);
+  state.playPos=clamp(state.playPos,start(),lastUsed());drawAll();
+}));
+['animName','fps','loop','pingpong'].forEach(id=>$(id).addEventListener('input',drawAll));
+els.zoom.oninput=()=>{state.sheetScale=n(els.zoom.value,1);drawSheet()};
+$('fitBtn').onclick=()=>{
+  els.start.value=0;
+  els.used.value=total();
+  state.playPos=0;
+  state.selected=0;
+  ensurePivots();
+  drawAll();
+};
+$('prevFrameTop').onclick=()=>selectFrame(state.selected-1);
+$('nextFrameTop').onclick=()=>selectFrame(state.selected+1);
+els.pivotX.oninput=()=>setPivot(els.pivotX.value,pivot(state.selected).y);
+els.pivotY.oninput=()=>setPivot(pivot(state.selected).x,els.pivotY.value);
+document.querySelectorAll('.pivot-grid button').forEach(b=>b.onclick=()=>setPivot(b.dataset.px,b.dataset.py));
+$('copyPrevPivot').onclick=()=>{if(state.selected<=0)return;const q=pivot(state.selected-1);setPivot(q.x,q.y)};
+$('applyAllPivot').onclick=()=>{const q={...pivot(state.selected)};for(let i=start();i<=lastUsed();i++)state.pivots[i]={...q};drawAll()};
+$('resetPivot').onclick=()=>setPivot(.5,.5);
+$('resetAllPivots').onclick=()=>{if(confirm('Reset all pivots to 0.5, 0.5?')){state.pivots=Array.from({length:total()},()=>({x:.5,y:.5}));drawAll()}};
+
+['showPivot','showBounds','ghostPrev','previewScale'].forEach(id=>$(id).addEventListener('input',drawPreview));
+
+const previewStage = document.querySelector('.preview-stage');
+
+// Wheel over Animation Preview zooms the animation around its anchor.
+previewStage.addEventListener('wheel', e => {
+  if(!state.image) return;
+  e.preventDefault();
+  const current = clamp(n(els.previewScale.value,1), .1, 8);
+  const next = clamp(current * (e.deltaY < 0 ? 1.1 : 0.9), .1, 8);
+  els.previewScale.value = (+next.toFixed(2)).toString();
+  drawPreview();
+}, {passive:false});
+
+// Drag inside Animation Preview to pan the animation without changing pivots.
+previewStage.addEventListener('pointerdown', e => {
+  if(!state.image || e.button !== 0) return;
+  state.previewDragging = true;
+  state.previewDragStart = {
+    x:e.clientX, y:e.clientY,
+    px:state.previewPanX, py:state.previewPanY
+  };
+  previewStage.classList.add('dragging');
+  previewStage.setPointerCapture(e.pointerId);
+});
+previewStage.addEventListener('pointermove', e => {
+  if(!state.previewDragging || !state.previewDragStart) return;
+  state.previewPanX = state.previewDragStart.px + (e.clientX - state.previewDragStart.x);
+  state.previewPanY = state.previewDragStart.py + (e.clientY - state.previewDragStart.y);
+  drawPreview();
+});
+function stopPreviewDrag(){
+  state.previewDragging = false;
+  state.previewDragStart = null;
+  previewStage.classList.remove('dragging');
+}
+previewStage.addEventListener('pointerup', stopPreviewDrag);
+previewStage.addEventListener('pointercancel', stopPreviewDrag);
+
+// Double click recenters preview.
+previewStage.addEventListener('dblclick', () => {
+  state.previewPanX = 0;
+  state.previewPanY = 0;
+  drawPreview();
+});
+
+// Drag the horizontal splitter to resize the whole preview panel.
+const previewSplitter = $('previewSplitter');
+let previewResize = null;
+previewSplitter.addEventListener('pointerdown', e => {
+  previewResize = {y:e.clientY, h:document.querySelector('.preview').getBoundingClientRect().height};
+  previewSplitter.setPointerCapture(e.pointerId);
+  document.body.style.cursor = 'ns-resize';
+  document.body.style.userSelect = 'none';
+});
+previewSplitter.addEventListener('pointermove', e => {
+  if(!previewResize) return;
+  const maxH = Math.max(260, window.innerHeight - 150);
+  const nextH = clamp(previewResize.h + (previewResize.y - e.clientY), 210, maxH);
+  document.documentElement.style.setProperty('--preview', `${Math.round(nextH)}px`);
+  drawAll();
+});
+function stopPreviewResize(){
+  previewResize = null;
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+}
+previewSplitter.addEventListener('pointerup', stopPreviewResize);
+previewSplitter.addEventListener('pointercancel', stopPreviewResize);
+$('prevBtn').onclick=()=>{state.playing=false;state.playPos=Math.max(start(),currentFrame()-1);state.selected=currentFrame();drawAll()};
+$('nextBtn').onclick=()=>{state.playing=false;state.playPos=Math.min(lastUsed(),currentFrame()+1);state.selected=currentFrame();drawAll()};
+els.play.onclick=()=>{if(!state.image)return;state.playing=!state.playing;state.lastTime=performance.now();state.acc=0;updatePlaybackUI()};
+els.scrub.oninput=()=>{state.playing=false;state.playPos=n(els.scrub.value,start());state.selected=currentFrame();drawAll()};
+
+function tick(t){
+  if(state.playing&&state.image){
+    const fps=clamp(n(els.fps.value,12),1,120),dur=1000/fps,dt=Math.min(200,t-state.lastTime);state.lastTime=t;state.acc+=dt;
+    while(state.acc>=dur){
+      state.acc-=dur;
+      const s=start(),e=lastUsed();
+      if(els.pingpong.checked){
+        state.playPos+=state.direction;
+        if(state.playPos>=e){state.playPos=e;state.direction=-1;if(!els.loop.checked&&e===s){state.playing=false}}
+        else if(state.playPos<=s){state.playPos=s;if(els.loop.checked)state.direction=1;else state.playing=false}
+      }else{
+        state.playPos++;
+        if(state.playPos>e){if(els.loop.checked)state.playPos=s;else{state.playPos=e;state.playing=false}}
+      }
+      state.selected=currentFrame();
+    }
+    drawAll();
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+function configObject(){
+  ensurePivots();
+  return {
+    version:2,
+    type:'sprite-sheet-animation',
+    source:{image:state.imageName,width:state.image?.naturalWidth||null,height:state.image?.naturalHeight||null},
+    sheet:{rows:rows(),columns:cols(),frameWidth:state.image?fw():null,frameHeight:state.image?fh():null,startFrame:start(),usedFrames:used()},
+    animation:{name:els.name.value||'animation',fps:n(els.fps.value,12),loop:els.loop.checked,pingPong:els.pingpong.checked,
+      frames:Array.from({length:used()},(_,k)=>{const i=start()+k,p=pivot(i);return{index:i,pivot:{x:+p.x.toFixed(6),y:+p.y.toFixed(6)}}})
+    }
+  };
+}
+function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
+function safeBase(){return (els.name.value||'animation').trim().replace(/[^a-z0-9_-]+/gi,'-').replace(/^-+|-+$/g,'')||'animation'}
+$('saveJsonBtn').onclick=()=>downloadBlob(new Blob([JSON.stringify(configObject(),null,2)],{type:'application/json'}),safeBase()+'.sprite-animation.json');
+
+$('loadJsonBtn').onclick=()=> $('jsonInput').click();
+$('jsonInput').onchange=async e=>{
+  try{
+    const obj=JSON.parse(await e.target.files[0].text());
+    const sh=obj.sheet||{},an=obj.animation||{};
+    els.rows.value=sh.rows??4;els.cols.value=sh.columns??4;els.start.value=sh.startFrame??0;els.used.value=sh.usedFrames??Math.max(1,total());
+    els.name.value=an.name??'animation';els.fps.value=an.fps??12;els.loop.checked=an.loop!==false;els.pingpong.checked=!!an.pingPong;
+    ensurePivots();state.pivots=Array.from({length:total()},()=>({x:.5,y:.5}));
+    (an.frames||[]).forEach(f=>{if(Number.isInteger(f.index)&&f.index>=0&&f.index<state.pivots.length&&f.pivot)state.pivots[f.index]={x:clamp(n(f.pivot.x,.5),0,1),y:clamp(n(f.pivot.y,.5),0,1)}});
+    state.selected=start();state.playPos=start();drawAll();
+  }catch(err){alert('Invalid JSON: '+err.message)}
+  e.target.value='';
+};
+
+// Minimal ZIP (store/no compression) implementation.
+const crcTable=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?0xedb88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(bytes){let c=0xffffffff;for(const b of bytes)c=crcTable[(c^b)&255]^(c>>>8);return(c^0xffffffff)>>>0}
+function u16(v){return [v&255,(v>>>8)&255]}
+function u32(v){return [v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255]}
+async function makeZip(files){
+  const enc=new TextEncoder(),local=[],central=[];let offset=0,count=0;
+  for(const f of files){
+    const name=enc.encode(f.name),data=f.data instanceof Uint8Array?f.data:new Uint8Array(f.data),crc=crc32(data),size=data.length;
+    const lh=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(crc),...u32(size),...u32(size),...u16(name.length),...u16(0),...name]);
+    local.push(lh,data);
+    const ch=new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(crc),...u32(size),...u32(size),...u16(name.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(offset),...name]);
+    central.push(ch);offset+=lh.length+data.length;count++;
+  }
+  const centralSize=central.reduce((a,b)=>a+b.length,0),end=new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(count),...u16(count),...u32(centralSize),...u32(offset),...u16(0)]);
+  return new Blob([...local,...central,end],{type:'application/zip'});
+}
+function baseNameFromImage(){
+  const raw=(state.imageName||'sprite-sheet.png').replace(/\.[^.]+$/,'').trim();
+  return raw||'sprite-sheet';
+}
+function safeExportBase(value){
+  return (value||'').trim().replace(/[^a-z0-9_-]+/gi,'-').replace(/^-+|-+$/g,'')||baseNameFromImage();
+}
+function openExportModal(){
+  if(!state.imageFile){alert('Open a sprite sheet image first.');return}
+  const modal=$('exportModal'),input=$('exportNameInput');
+  input.value=baseNameFromImage();
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden','false');
+  requestAnimationFrame(()=>{input.focus();input.select()});
+}
+function closeExportModal(){
+  const modal=$('exportModal');
+  modal.classList.remove('show');
+  modal.setAttribute('aria-hidden','true');
+}
+async function confirmExport(){
+  if(!state.imageFile){closeExportModal();return}
+  const packageBase=safeExportBase($('exportNameInput').value);
+  const jsonBytes=new TextEncoder().encode(JSON.stringify(configObject(),null,2));
+  const imgBytes=new Uint8Array(await state.imageFile.arrayBuffer());
+  const blob=await makeZip([
+    {name:state.imageName,data:imgBytes},
+    {name:packageBase+'.sprite-animation.json',data:jsonBytes}
+  ]);
+  closeExportModal();
+  downloadBlob(blob,packageBase+'.zip');
+}
+$('exportZipBtn').onclick=openExportModal;
+$('exportCancelBtn').onclick=closeExportModal;
+$('exportConfirmBtn').onclick=confirmExport;
+$('exportModal').addEventListener('pointerdown',e=>{if(e.target===$('exportModal'))closeExportModal()});
+$('exportNameInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();confirmExport()}
+  else if(e.key==='Escape'){e.preventDefault();closeExportModal()}
+});
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&$('exportModal').classList.contains('show')) closeExportModal();
+});
+
+const overlay=$('dropOverlay');
+['dragenter','dragover'].forEach(ev=>window.addEventListener(ev,e=>{e.preventDefault();overlay.classList.add('show')}));
+['dragleave','drop'].forEach(ev=>window.addEventListener(ev,e=>{e.preventDefault();if(ev==='drop'){overlay.classList.remove('show');const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/'))loadImageFile(f)}else if(e.relatedTarget===null)overlay.classList.remove('show')}));
+window.addEventListener('resize',drawAll);
+
+drawAll();
+})();
+</script>
+</body>
+</html>

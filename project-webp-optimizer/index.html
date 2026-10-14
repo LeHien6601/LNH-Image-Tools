@@ -1,0 +1,897 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Project WebP Optimizer v1.4.0</title>
+<style>
+  :root{
+    color-scheme:dark;
+    --bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2b313d;--text:#eef1f6;--muted:#98a2b3;
+    --accent:#6ea8fe;--good:#55d187;--warn:#f6c85f;--bad:#ff7b7b;--chip:#252b36;--shadow:0 14px 45px rgba(0,0,0,.28);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+  button,input,select{font:inherit}
+  button{border:1px solid var(--line);background:#242a35;color:var(--text);border-radius:8px;padding:8px 12px;cursor:pointer}
+  button:hover:not(:disabled){border-color:#4e5b70;background:#2b3340}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{background:#2f6feb;border-color:#2f6feb;color:white;font-weight:650}
+  button.primary:hover:not(:disabled){background:#3b7af0}
+  button.danger{background:#3a2528;border-color:#6c343a;color:#ffd6d6}
+  input[type="text"],input[type="number"],select{border:1px solid var(--line);background:#101319;color:var(--text);border-radius:7px;padding:7px 9px}
+  input[type="range"]{accent-color:var(--accent)}
+  .app{max-width:1500px;margin:0 auto;padding:24px}
+  .header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:18px}
+  h1{font-size:24px;margin:0 0 4px}.sub{color:var(--muted)}
+  .badge{padding:5px 9px;border:1px solid var(--line);border-radius:999px;background:var(--chip);color:#cfd6e2;font-size:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);margin-bottom:14px;overflow:hidden}
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .card-body{padding:16px}.title{font-weight:700}.muted{color:var(--muted)}
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.grow{flex:1}.spacer{height:8px}
+  .project-path{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#0e1116;border:1px solid var(--line);padding:8px 10px;border-radius:7px;min-width:260px;max-width:780px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stats{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:10px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}.stat b{display:block;font-size:20px;margin-top:4px}.stat span{color:var(--muted);font-size:12px}
+  .config-grid{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:14px}
+  .field{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}.field label{display:block;color:#cbd2dc;font-weight:650;margin-bottom:8px}.field .hint{font-size:12px;color:var(--muted);margin-top:7px}
+  .quality-line{display:grid;grid-template-columns:1fr 64px;gap:8px;align-items:center}.check{display:flex;gap:8px;align-items:flex-start;margin:6px 0}.check input{margin-top:3px}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.toolbar .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .table-wrap{overflow:auto;max-height:58vh;border-top:1px solid var(--line)}
+  table{width:100%;border-collapse:separate;border-spacing:0;min-width:1160px}
+  th,td{padding:9px 10px;border-bottom:1px solid #252b34;text-align:left;vertical-align:middle}
+  th{position:sticky;top:0;z-index:2;background:#171b22;color:#aeb8c7;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  tr:hover td{background:#1a1f27}.asset-path{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
+  .tiny{font-size:12px}.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:999px;background:var(--chip);border:1px solid var(--line);font-size:11px;white-space:nowrap}
+  .pill.good{color:#9aefb8;border-color:#315f43}.pill.warn{color:#ffe4a0;border-color:#6d5a2e}.pill.bad{color:#ffb4b4;border-color:#6c3838}.pill.info{color:#bcd6ff;border-color:#37557c}
+  .refs-btn{padding:4px 7px;font-size:12px}.quality-override{width:68px}.disk-good{color:#9aefb8}.disk-bad{color:#ffb4b4}.disk-neutral{color:var(--muted)}
+  .empty{padding:42px 18px;text-align:center;color:var(--muted)}
+  .progress{height:8px;background:#0c0f14;border-radius:999px;overflow:hidden;border:1px solid #242a33}.progress>div{height:100%;width:0;background:var(--accent);transition:width .12s linear}
+  .progress-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-top:10px}
+  .log{font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;background:#0b0e12;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:180px;overflow:auto;white-space:pre-wrap}
+  .summary-grid{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:10px}.summary-box{border:1px solid var(--line);background:var(--panel2);border-radius:9px;padding:10px}.summary-box b{display:block;font-size:18px;margin-top:4px}
+  dialog{width:min(900px,92vw);max-height:80vh;border:1px solid var(--line);border-radius:12px;background:#151920;color:var(--text);box-shadow:0 24px 80px rgba(0,0,0,.5);padding:0}
+  dialog::backdrop{background:rgba(0,0,0,.62)}.dialog-head{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}.dialog-body{padding:14px 16px;overflow:auto;max-height:65vh}.dialog-foot{padding:12px 16px;border-top:1px solid var(--line);text-align:right}
+  .ref-item{padding:8px 0;border-bottom:1px solid #262c35}.ref-file{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#d8e4f8}.ref-raw{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#a8b2c0;font-size:12px;margin-top:3px;word-break:break-all}
+  .warning-banner{border:1px solid #67562a;background:#2a2416;color:#ffe3a0;border-radius:9px;padding:10px 12px;margin-bottom:12px}
+  .ok-banner{border:1px solid #315b42;background:#17271e;color:#a7e9bd;border-radius:9px;padding:10px 12px;margin-bottom:12px}
+  .backup-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0}.backup-row select{min-width:280px}.risk-list{margin:10px 0 0;padding-left:18px;color:var(--muted)}.risk-list li{margin:5px 0}.preview-grid{display:grid;grid-template-columns:repeat(3,minmax(140px,1fr));gap:10px}.preview-box{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px}.preview-box b{display:block;font-size:18px;margin-top:4px}
+  .fatal-banner{border:1px solid #6b3636;background:#2b191b;color:#ffc3c3;border-radius:9px;padding:10px 12px;margin-bottom:12px}
+  .mode-picker{display:flex;gap:8px;flex-wrap:wrap}.mode-btn{min-width:190px}.mode-btn.active{background:#2f6feb;border-color:#2f6feb;color:#fff;font-weight:700}
+  .drop-zone{margin-top:12px;border:2px dashed #3a4658;border-radius:12px;padding:24px;text-align:center;background:#11151c;color:#c9d1dc;transition:border-color .12s,background .12s,transform .12s}
+  .drop-zone b{display:block;font-size:15px;margin-bottom:4px}.drop-zone.dragover{border-color:var(--accent);background:#172235;transform:translateY(-1px)}
+  body.simple-mode .reference-only{display:none!important}body:not(.simple-mode) .simple-only{display:none!important}
+  @media(max-width:900px){.stats,.config-grid,.summary-grid{grid-template-columns:1fr 1fr}.app{padding:12px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div>
+      <h1>Project WebP Optimizer</h1>
+      <div class="sub">Scan a project folder, convert PNG/JPEG assets to WebP, recompress existing WebP by quality, rewrite static path references when paths change, and keep a rollback-safe <code>.backup/</code>.</div>
+    </div>
+    <div class="badge">v1.4.0 · local only</div>
+  </div>
+
+  <div id="compatBanner"></div>
+
+  <section class="card">
+    <div class="card-head"><div class="title">0. Mode</div><div class="muted tiny">Switch without changing optimization quality settings</div></div>
+    <div class="card-body">
+      <div class="mode-picker">
+        <button id="referenceModeBtn" class="mode-btn active">Safe Project / References</button>
+        <button id="simpleModeBtn" class="mode-btn">Simple Images</button>
+      </div>
+      <div id="modeDescription" class="muted" style="margin-top:10px">Scans project text references, rewrites resolvable paths, and protects risky source deletion.</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><div class="title" id="sourceTitle">1. Project Folder</div><div class="muted tiny">Chrome / Edge desktop recommended</div></div>
+    <div class="card-body">
+      <div class="row">
+        <button id="chooseFolderBtn" class="primary">Choose Project Folder</button>
+        <button id="rescanBtn" disabled>Rescan</button>
+        <div id="projectPath" class="project-path muted">No folder selected</div>
+        <div class="grow"></div>
+        <button id="cancelBtn" class="danger" disabled>Cancel</button>
+      </div>
+      <div id="dropZone" class="drop-zone simple-only" tabindex="0">
+        <b>Drop image files or a folder here</b>
+        <span class="muted tiny">Drop files repeatedly to build one batch. A dropped writable folder can be optimized in place. Loose PNG/JPEG/WebP files are optimized locally and exported as WebP / ZIP; their originals are never touched.</span>
+      </div>
+      <div class="progress-row"><div class="progress"><div id="progressBar"></div></div><div id="progressText" class="muted tiny">Idle</div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><div class="title">2. Scan Summary</div><div id="scanStamp" class="muted tiny">—</div></div>
+    <div class="card-body">
+      <div class="stats">
+        <div class="stat"><span>Images</span><b id="statImages">0</b></div>
+        <div class="stat"><span>Optimizable</span><b id="statConvertible">0</b></div>
+        <div class="stat"><span>Existing WebP</span><b id="statWebp">0</b></div>
+        <div class="stat reference-only"><span>Static references</span><b id="statRefs">0</b></div>
+        <div class="stat reference-only"><span>Text files scanned</span><b id="statText">0</b></div>
+        <div class="stat reference-only"><span>Scan risks</span><b id="statRisks">0</b><button id="viewRisksBtn" class="refs-btn" disabled style="margin-top:6px">View</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><div class="title">3. Optimization Config</div><div class="muted tiny">No resize. Resolution is preserved exactly.</div></div>
+    <div class="card-body">
+      <div class="config-grid">
+        <div class="field">
+          <label for="preset">WebP preset</label>
+          <select id="preset">
+            <option value="0.90">High · 90</option>
+            <option value="0.82" selected>Balanced · 82</option>
+            <option value="0.72">Small · 72</option>
+            <option value="custom">Custom</option>
+          </select>
+          <div class="quality-line" style="margin-top:10px"><input id="quality" type="range" min="50" max="100" value="82"/><input id="qualityNumber" type="number" min="50" max="100" value="82"/></div>
+          <div class="hint">Per-asset quality can override this value in the table. Existing WebP files can be recompressed in place at the chosen quality.</div>
+        </div>
+        <div class="field">
+          <label>Smart keep</label>
+          <div class="check"><input id="keepLarger" type="checkbox" checked/><span>Keep original when WebP is not smaller.</span></div>
+          <div class="check"><input id="keepBelowThreshold" type="checkbox" checked/><span>Keep original when saving is below <input id="minSaving" type="number" min="0" max="50" step="0.5" value="3" style="width:64px"/>%.</span></div>
+        </div>
+        <div class="field reference-only">
+          <label>Reference migration</label>
+          <div class="check"><input id="rewriteRefs" type="checkbox" checked/><span>Rewrite resolved static PNG/JPEG path references to the new WebP path.</span></div>
+          <div class="hint">Dynamic paths cannot be inferred safely and are never rewritten automatically.</div>
+        </div>
+        <div class="field reference-only">
+          <label>Safety</label>
+          <div class="check"><input type="checkbox" checked disabled/><span>Backup originals and every modified text file.</span></div>
+          <div class="check"><input type="checkbox" checked disabled/><span>Verify output before deleting original assets.</span></div>
+          <div class="check"><input type="checkbox" checked disabled/><span>Automatic rollback if the write transaction fails.</span></div>
+          <div class="check"><input id="forceRiskyRemove" type="checkbox"/><span><b>Advanced:</b> allow deleting originals despite asset-specific unresolved/dynamic/ambiguous references.</span></div>
+          <div class="hint">Project-wide scan gaps are advisory; only risks that can be attributed to an asset block deletion. Detected <code>.meta</code>/<code>.import</code> sidecars are always side-by-side only.</div>
+        </div>
+        <div class="field simple-only">
+          <label>Simple source handling</label>
+          <div class="check"><input id="simpleRemoveOriginal" type="checkbox" checked/><span>For folder sources, delete original PNG/JPEG after the verified WebP is written.</span></div>
+          <div class="hint"><b>References are intentionally ignored.</b> Dropped loose files are export-only and are never deleted from disk.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div class="title">4. Assets</div>
+      <div class="toolbar">
+        <button id="selectVisibleBtn" disabled>Select visible</button>
+        <button id="selectAllBtn" disabled>Select all</button>
+        <button id="selectNoneBtn" disabled>Select none</button>
+        <select id="statusFilter" disabled>
+          <option value="all">All assets</option>
+          <option value="selected">Selected</option>
+          <option value="referenced" class="reference-only">Referenced</option>
+          <option value="unreferenced" class="reference-only">No static refs</option>
+          <option value="warning">Warnings</option>
+          <option value="webp">Existing WebP</option>
+        </select>
+        <input id="searchInput" type="text" placeholder="Filter path…" disabled/>
+        <div class="right">
+          <button id="analyzeBtn" disabled>Analyze Selected</button>
+          <button id="optimizeBtn" class="primary" disabled>Optimize Selected</button>
+        </div>
+      </div>
+    </div>
+    <div id="assetTableEmpty" class="empty">Choose a project folder to begin.</div>
+    <div id="assetTableWrap" class="table-wrap" hidden>
+      <table>
+        <thead><tr>
+          <th style="width:42px"><input id="headerCheck" type="checkbox"/></th>
+          <th>Asset</th><th>Type</th><th>Original</th><th class="reference-only">Refs</th><th class="reference-only">Risk</th><th>Quality</th><th>WebP analysis</th><th>Disk effect</th><th>Output</th>
+        </tr></thead>
+        <tbody id="assetTbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><div class="title">5. Analysis / Result</div><div id="resultHint" class="muted tiny">WebP analysis shows compression ratio; Disk effect includes whether the source file will actually be removed.</div></div>
+    <div class="card-body">
+      <div class="summary-grid">
+        <div class="summary-box"><span class="muted tiny">Selected original</span><b id="sumBefore">0 B</b></div>
+        <div class="summary-box"><span class="muted tiny">Expected after</span><b id="sumAfter">0 B</b></div>
+        <div class="summary-box"><span class="muted tiny">Net image change</span><b id="sumSaved">0 B</b></div>
+        <div class="summary-box reference-only"><span class="muted tiny">Reference edits</span><b id="sumRefEdits">0</b></div>
+        <div class="summary-box"><span class="muted tiny">Remove originals</span><b id="sumRemove">0</b></div>
+        <div class="summary-box"><span class="muted tiny">Keep originals</span><b id="sumRetain">0</b></div>
+        <div class="summary-box"><span class="muted tiny">Overwrite WebP</span><b id="sumOverwrite">0</b></div>
+      </div>
+      <div class="spacer"></div>
+      <div class="backup-row"><span class="muted tiny">Backups</span><select id="backupSelect" disabled><option>No backups</option></select><button id="restoreBackupBtn" disabled>Restore selected</button><button id="deleteBackupBtn" class="danger" disabled>Delete selected</button></div>
+      <div id="lastBackup" class="muted tiny">No backup created yet.</div>
+      <div class="spacer"></div>
+      <div id="log" class="log">Ready.</div>
+    </div>
+  </section>
+</div>
+
+<dialog id="refsDialog">
+  <div class="dialog-head"><div><div class="title" id="refsTitle">References</div><div class="muted tiny" id="refsSubtitle"></div></div><button id="closeRefsBtn">Close</button></div>
+  <div class="dialog-body" id="refsBody"></div>
+  <div class="dialog-foot"><button id="closeRefsBtn2">Close</button></div>
+</dialog>
+
+<dialog id="risksDialog">
+  <div class="dialog-head"><div><div class="title">Scan Risks</div><div class="muted tiny">Items the generic scanner cannot prove safe.</div></div><button id="closeRisksBtn">Close</button></div>
+  <div class="dialog-body" id="risksBody"></div>
+  <div class="dialog-foot"><button id="closeRisksBtn2">Close</button></div>
+</dialog>
+
+<dialog id="transactionDialog">
+  <div class="dialog-head"><div><div class="title">Transaction Preview</div><div class="muted tiny">Nothing has been written yet.</div></div><button id="closeTransactionBtn">Close</button></div>
+  <div class="dialog-body" id="transactionBody"></div>
+  <div class="dialog-foot"><button id="cancelTransactionBtn">Cancel</button> <button id="commitTransactionBtn" class="primary">Create Backup & Optimize</button></div>
+</dialog>
+
+<script>
+(()=>{
+'use strict';
+
+const VERSION='1.4.0';
+const IMAGE_EXTS=new Set(['png','jpg','jpeg','webp']);
+const CONVERTIBLE_EXTS=new Set(['png','jpg','jpeg','webp']);
+const TEXT_EXTS=new Set(['js','mjs','cjs','ts','tsx','jsx','vue','svelte','json','html','htm','css','scss','sass','less','xml','plist','txt','atlas','yaml','yml','toml','ini','cfg','conf','md','lua','py','cs','java','kt','gradle','properties','prefab','scene','fire','meta','asset','unity','mat','material','anim','controller','manifest','shader','glsl','vert','frag','hlsl','compute']);
+const NON_REWRITE_TEXT_EXTS=new Set(['meta']);
+const EXCLUDED_DIRS=new Set(['.backup','.git','node_modules','dist','build','cache','.cache','temp','.tmp']);
+const MAX_TEXT_BYTES=12*1024*1024;
+
+const $=s=>document.querySelector(s);
+const els={
+  compatBanner:$('#compatBanner'),referenceModeBtn:$('#referenceModeBtn'),simpleModeBtn:$('#simpleModeBtn'),modeDescription:$('#modeDescription'),sourceTitle:$('#sourceTitle'),dropZone:$('#dropZone'),chooseFolderBtn:$('#chooseFolderBtn'),rescanBtn:$('#rescanBtn'),projectPath:$('#projectPath'),cancelBtn:$('#cancelBtn'),
+  progressBar:$('#progressBar'),progressText:$('#progressText'),scanStamp:$('#scanStamp'),statImages:$('#statImages'),statConvertible:$('#statConvertible'),statWebp:$('#statWebp'),statRefs:$('#statRefs'),statText:$('#statText'),statRisks:$('#statRisks'),viewRisksBtn:$('#viewRisksBtn'),
+  preset:$('#preset'),quality:$('#quality'),qualityNumber:$('#qualityNumber'),keepLarger:$('#keepLarger'),keepBelowThreshold:$('#keepBelowThreshold'),minSaving:$('#minSaving'),rewriteRefs:$('#rewriteRefs'),forceRiskyRemove:$('#forceRiskyRemove'),simpleRemoveOriginal:$('#simpleRemoveOriginal'),
+  selectVisibleBtn:$('#selectVisibleBtn'),selectAllBtn:$('#selectAllBtn'),selectNoneBtn:$('#selectNoneBtn'),statusFilter:$('#statusFilter'),searchInput:$('#searchInput'),analyzeBtn:$('#analyzeBtn'),optimizeBtn:$('#optimizeBtn'),headerCheck:$('#headerCheck'),
+  assetTableEmpty:$('#assetTableEmpty'),assetTableWrap:$('#assetTableWrap'),assetTbody:$('#assetTbody'),sumBefore:$('#sumBefore'),sumAfter:$('#sumAfter'),sumSaved:$('#sumSaved'),sumRefEdits:$('#sumRefEdits'),sumRemove:$('#sumRemove'),sumRetain:$('#sumRetain'),resultHint:$('#resultHint'),lastBackup:$('#lastBackup'),log:$('#log'),
+  backupSelect:$('#backupSelect'),restoreBackupBtn:$('#restoreBackupBtn'),deleteBackupBtn:$('#deleteBackupBtn'),sumOverwrite:$('#sumOverwrite'),
+  refsDialog:$('#refsDialog'),refsTitle:$('#refsTitle'),refsSubtitle:$('#refsSubtitle'),refsBody:$('#refsBody'),closeRefsBtn:$('#closeRefsBtn'),closeRefsBtn2:$('#closeRefsBtn2'),
+  risksDialog:$('#risksDialog'),risksBody:$('#risksBody'),closeRisksBtn:$('#closeRisksBtn'),closeRisksBtn2:$('#closeRisksBtn2'),
+  transactionDialog:$('#transactionDialog'),transactionBody:$('#transactionBody'),closeTransactionBtn:$('#closeTransactionBtn'),cancelTransactionBtn:$('#cancelTransactionBtn'),commitTransactionBtn:$('#commitTransactionBtn')
+};
+
+const state={
+  mode:'reference',sourceKind:'directory',root:null,rootName:'',files:new Map(),images:[],imageMap:new Map(),basenameMap:new Map(),textFiles:[],refsByAsset:new Map(),uncertainByAsset:new Map(),scanGaps:[],dynamicRefs:[],ambiguousRefs:[],backups:[],pendingTx:null,
+  busy:false,cancel:false,scanToken:0,lastBackupPath:'',logLines:[]
+};
+
+function log(msg,type='info'){
+  const stamp=new Date().toLocaleTimeString();
+  const prefix=type==='error'?'ERROR':type==='warn'?'WARN':'INFO';
+  state.logLines.push(`[${stamp}] ${prefix}  ${msg}`);
+  if(state.logLines.length>250)state.logLines.splice(0,state.logLines.length-250);
+  els.log.textContent=state.logLines.join('\n');els.log.scrollTop=els.log.scrollHeight;
+}
+function resetLog(){state.logLines=[];els.log.textContent='';}
+function setBusy(busy,label=''){
+  state.busy=busy;els.cancelBtn.disabled=!busy;els.chooseFolderBtn.disabled=busy||!('showDirectoryPicker' in window);els.rescanBtn.disabled=busy||!state.root;
+  [...document.querySelectorAll('button,input,select')].forEach(el=>{if(el===els.cancelBtn||el===els.chooseFolderBtn||el===els.rescanBtn)return;if(busy)el.dataset.wasDisabled=el.disabled?'1':'0',el.disabled=true;else if(el.dataset.wasDisabled!==undefined){el.disabled=el.dataset.wasDisabled==='1';delete el.dataset.wasDisabled;}});
+  if(!busy)refreshControls();
+  if(label)els.progressText.textContent=label;
+}
+function setProgress(done,total,label){const p=total?Math.min(100,Math.max(0,done/total*100)):0;els.progressBar.style.width=`${p}%`;els.progressText.textContent=label||`${Math.round(p)}%`;}
+function checkCancel(){if(state.cancel)throw new DOMException('Operation cancelled','AbortError');}
+function human(bytes){const n=Math.max(0,Number(bytes||0));if(n<1024)return`${Math.round(n)} B`;if(n<1024*1024)return`${(n/1024).toFixed(n<10240?1:0)} KB`;return`${(n/1024/1024).toFixed(n<10*1024*1024?2:1)} MB`;}
+function pct(saved,before){return before>0?`${(saved/before*100).toFixed(1)}%`:'0%';}
+function slash(p){return String(p||'').replace(/\\+/g,'/').replace(/^\.\//,'').replace(/\/+/g,'/');}
+function ext(p){const n=slash(p).split('/').pop()||'';const i=n.lastIndexOf('.');return i>=0?n.slice(i+1).toLowerCase():'';}
+function dirname(p){const a=slash(p).split('/');a.pop();return a.join('/');}
+function basename(p){return slash(p).split('/').pop()||'';}
+function stem(p){const n=basename(p),i=n.lastIndexOf('.');return i>0?n.slice(0,i):n;}
+function joinPath(...parts){return normalizePath(parts.filter(Boolean).join('/'));}
+function normalizePath(path){const out=[];for(const raw of slash(path).split('/')){const s=raw.trim()===''?'':raw;if(!s||s==='.')continue;if(s==='..'){if(!out.length)return null;out.pop();}else out.push(s);}return out.join('/');}
+function relativePath(fromDir,toPath){const a=(normalizePath(fromDir)||'').split('/').filter(Boolean),b=(normalizePath(toPath)||'').split('/').filter(Boolean);let i=0;while(i<a.length&&i<b.length&&a[i]===b[i])i++;return [...Array(a.length-i).fill('..'),...b.slice(i)].join('/')||basename(toPath);}
+function splitSuffix(ref){const i=ref.search(/[?#]/);return i<0?{path:ref,suffix:''}:{path:ref.slice(0,i),suffix:ref.slice(i)};}
+function isExternal(ref){return /^(?:[a-z]+:|\/\/|data:|blob:)/i.test(String(ref||'').trim());}
+function mimeForExt(e){if(e==='png')return'image/png';if(e==='jpg'||e==='jpeg')return'image/jpeg';if(e==='webp')return'image/webp';return'application/octet-stream';}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+function escapeRegExp(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+function timestampName(){const d=new Date(),p=n=>String(n).padStart(2,'0'),ms=String(d.getMilliseconds()).padStart(3,'0');return`${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${ms}`;}
+function analysisKeyForAsset(a){return JSON.stringify({q:qualityForAsset(a),larger:els.keepLarger.checked,below:els.keepBelowThreshold.checked,min:+els.minSaving.value||0});}
+function analysisCurrent(a){return !!(a.analysis&&a.analysis.configKey===analysisKeyForAsset(a));}
+function hasSource(){return !!state.root||(state.sourceKind==='drop-files'&&state.images.length>0);}
+function simpleMode(){return state.mode==='simple';}
+function getAssetFile(a){return a.fileObject?Promise.resolve(a.fileObject):a.handle?.getFile?a.handle.getFile():Promise.reject(new Error(`Source file is unavailable: ${a.path}`));}
+function clearSource(){state.root=null;state.rootName='';state.sourceKind='directory';state.files=new Map();state.images=[];state.imageMap=new Map();state.basenameMap=new Map();state.textFiles=[];state.refsByAsset=new Map();state.uncertainByAsset=new Map();state.scanGaps=[];state.dynamicRefs=[];state.ambiguousRefs=[];state.backups=[];state.pendingTx=null;els.projectPath.textContent='No source selected';els.projectPath.title='';els.scanStamp.textContent='—';}
+function applyModeUi(){
+  document.body.classList.toggle('simple-mode',simpleMode());
+  els.referenceModeBtn.classList.toggle('active',!simpleMode());els.simpleModeBtn.classList.toggle('active',simpleMode());
+  els.sourceTitle.textContent=simpleMode()?'1. Image Source':'1. Project Folder';els.chooseFolderBtn.textContent=simpleMode()?'Scan Folder':'Choose Project Folder';
+  els.modeDescription.textContent=simpleMode()?'Scans image files only. No text/reference analysis or reference rewrite is performed. Folder sources can replace originals; loose dropped files export new WebP files.':'Scans project text references, rewrites resolvable paths, and protects risky source deletion.';
+  if(simpleMode()&&['referenced','unreferenced'].includes(els.statusFilter.value))els.statusFilter.value='all';
+  els.simpleRemoveOriginal.disabled=state.sourceKind==='drop-files';
+}
+async function setMode(mode){if(state.busy||!['reference','simple'].includes(mode)||state.mode===mode)return;state.mode=mode;if(mode==='reference'&&state.sourceKind==='drop-files')clearSource();applyModeUi();saveConfig();if(state.root)await scanProject();else renderAll();}
+function saveConfig(){try{localStorage.setItem('projectWebpOptimizerConfig',JSON.stringify({mode:state.mode,preset:els.preset.value,quality:els.qualityNumber.value,keepLarger:els.keepLarger.checked,keepBelowThreshold:els.keepBelowThreshold.checked,minSaving:els.minSaving.value,rewriteRefs:els.rewriteRefs.checked,forceRiskyRemove:els.forceRiskyRemove.checked,simpleRemoveOriginal:els.simpleRemoveOriginal.checked}));}catch(_){}}
+function loadConfig(){try{const v=JSON.parse(localStorage.getItem('projectWebpOptimizerConfig')||'null');if(!v)return;if(v.mode==='simple'||v.mode==='reference')state.mode=v.mode;if(v.quality){els.quality.value=els.qualityNumber.value=v.quality;}if(v.preset)els.preset.value=v.preset;els.keepLarger.checked=v.keepLarger!==false;els.keepBelowThreshold.checked=v.keepBelowThreshold!==false;if(v.minSaving!=null)els.minSaving.value=v.minSaving;els.rewriteRefs.checked=v.rewriteRefs!==false;els.forceRiskyRemove.checked=v.forceRiskyRemove===true;els.simpleRemoveOriginal.checked=v.simpleRemoveOriginal!==false;}catch(_){}}
+function refreshAnalysisViews(){updateSummary();renderTable();}
+
+
+function showCompatibility(){
+  if('showDirectoryPicker' in window){els.compatBanner.innerHTML='<div class="ok-banner">File System Access API detected. Folder sources can be scanned and modified directly. Simple Mode also accepts drag-and-drop. All processing stays in this browser tab.</div>';}
+  else{els.compatBanner.innerHTML='<div class="warning-banner"><b>Direct folder write is unavailable in this browser.</b> Use current desktop Chrome/Edge for folder optimization. Simple Mode can still accept dropped image files and export converted results.</div>';els.chooseFolderBtn.disabled=true;}
+}
+
+async function chooseFolder(){
+  try{
+    const handle=await window.showDirectoryPicker({mode:'readwrite'});
+    const perm=await handle.queryPermission?.({mode:'readwrite'});
+    if(perm!=='granted'){const req=await handle.requestPermission?.({mode:'readwrite'});if(req!=='granted')throw new Error('Read/write permission was not granted.');}
+    state.root=handle;state.sourceKind='directory';state.rootName=handle.name;els.projectPath.textContent=handle.name;els.projectPath.title=handle.name;
+    applyModeUi();await scanProject();
+  }catch(err){if(err?.name==='AbortError')return;log(err.message||String(err),'error');alert(`Cannot open folder:\n${err.message||err}`);}
+}
+
+async function walkDirectory(dirHandle,prefix='',out=[]){
+  for await(const [name,handle] of dirHandle.entries()){
+    checkCancel();
+    if(handle.kind==='directory'){
+      if(EXCLUDED_DIRS.has(name))continue;
+      await walkDirectory(handle,prefix?`${prefix}/${name}`:name,out);
+    }else{
+      const path=prefix?`${prefix}/${name}`:name;
+      out.push({path:slash(path),handle});
+    }
+  }
+  return out;
+}
+
+async function collectDroppedHandle(handle,prefix='',out=[]){
+  if(handle.kind==='file'){const file=await handle.getFile();out.push({path:slash(prefix||file.name),handle,file});return out;}
+  for await(const [name,child] of handle.entries()){checkCancel();const p=prefix?`${prefix}/${name}`:name;await collectDroppedHandle(child,p,out);}
+  return out;
+}
+function uniqueDroppedPath(path,used){let clean=slash(path)||'image';if(!used.has(clean.toLowerCase())){used.add(clean.toLowerCase());return clean;}const e=ext(clean),dir=dirname(clean),base=stem(clean);let n=2,candidate;do{candidate=joinPath(dir,`${base}-${n++}.${e}`);}while(used.has(candidate.toLowerCase()));used.add(candidate.toLowerCase());return candidate;}
+async function loadDroppedFiles(records,label='Dropped files'){
+  const append=state.sourceKind==='drop-files'&&state.images.length>0;
+  state.cancel=false;setBusy(true,append?'Adding dropped images…':'Loading dropped images…');
+  if(!append)resetLog();
+  try{
+    if(!append)clearSource();
+    state.sourceKind='drop-files';state.root=null;state.rootName='Dropped assets';state.backups=[];
+    const used=new Set([...state.files.keys()].map(p=>p.toLowerCase()));let added=0,skipped=0,seen=0;
+    for(const rec of records){
+      checkCancel();
+      const file=rec.file||await rec.handle?.getFile?.();if(!file)continue;
+      const rawPath=slash(rec.path||file.name)||file.name,e=ext(rawPath);if(!IMAGE_EXTS.has(e))continue;
+      const existing=state.files.get(rawPath);
+      if(existing&&existing.size===file.size&&existing.lastModified===file.lastModified){skipped++;continue;}
+      const path=uniqueDroppedPath(rawPath,used),item={path,handle:rec.handle||null,fileObject:file,size:file.size,lastModified:file.lastModified,type:file.type||mimeForExt(e),ext:e};
+      state.files.set(path,item);
+      const asset={...item,convertible:CONVERTIBLE_EXTS.has(e),selected:CONVERTIBLE_EXTS.has(e),qualityOverride:null,refs:[],uncertainRefs:[],dynamicRefs:[],ambiguousRefs:[],analysis:null,outputPath:null,collision:false,sidecars:[]};
+      state.images.push(asset);state.imageMap.set(path,asset);added++;seen++;
+      if(seen%20===0)await new Promise(r=>setTimeout(r,0));
+    }
+    assignOutputPaths();
+    els.projectPath.textContent=`Dropped assets · ${state.images.length} image(s)`;els.projectPath.title=`${state.images.length} accumulated dropped image(s)`;
+    els.scanStamp.textContent=`Updated ${new Date().toLocaleString()}`;
+    if(append)log(`Added ${added} image(s) from ${label}. ${skipped} duplicate(s) skipped. Total: ${state.images.length}.`);
+    else log(`Loaded ${added} dropped image(s) from ${label}. ${skipped} duplicate(s) skipped. Loose files are export-only; no source files will be modified.`);
+    applyModeUi();renderAll();
+  }catch(err){if(err?.name==='AbortError')log('Drop loading cancelled.','warn');else{log(err.message||String(err),'error');alert(`Could not load dropped files:
+${err.message||err}`);}}
+  finally{state.cancel=false;setProgress(0,1,'Idle');setBusy(false);}
+}
+async function handleDrop(ev){
+  ev.preventDefault();els.dropZone.classList.remove('dragover');if(state.busy||!simpleMode())return;
+  const dt=ev.dataTransfer;
+  // Capture every DataTransferItem synchronously while the drop event is still active.
+  // Chromium can lose access to later items when getAsFileSystemHandle() is awaited one-by-one.
+  const items=[...(dt?.items||[])].filter(i=>i.kind==='file');
+  const fallbackFiles=[...(dt?.files||[])];
+  const captured=items.map((item,index)=>{
+    let handlePromise=null,file=null;
+    if(typeof item.getAsFileSystemHandle==='function'){
+      try{handlePromise=Promise.resolve(item.getAsFileSystemHandle()).catch(()=>null);}catch(_){handlePromise=Promise.resolve(null);}
+    }
+    try{file=item.getAsFile?.()||null;}catch(_){}
+    return{index,handlePromise,file};
+  });
+  try{
+    const resolved=await Promise.all(captured.map(async c=>({...c,handle:c.handlePromise?await c.handlePromise:null})));
+    const resolvedHandles=resolved.map(c=>c.handle).filter(Boolean);
+
+    if(resolved.length===1&&resolved[0].handle?.kind==='directory'){
+      const h=resolved[0].handle;let writable=false;try{const q=await h.queryPermission?.({mode:'readwrite'});if(q==='granted')writable=true;else if(q==='prompt')writable=(await h.requestPermission?.({mode:'readwrite'}))==='granted';}catch(_){}
+      if(writable){state.root=h;state.sourceKind='directory';state.rootName=h.name;els.projectPath.textContent=h.name;els.projectPath.title=h.name;applyModeUi();await scanProject();return;}
+      const recs=[];await collectDroppedHandle(h,h.name,recs);await loadDroppedFiles(recs,h.name);return;
+    }
+
+    const recs=[];
+    for(const c of resolved){
+      checkCancel();
+      if(c.handle){await collectDroppedHandle(c.handle,c.handle.name,recs);continue;}
+      if(c.file){recs.push({path:c.file.webkitRelativePath||c.file.name,file:c.file});}
+    }
+
+    if(!recs.length&&fallbackFiles.length){
+      for(const file of fallbackFiles)recs.push({path:file.webkitRelativePath||file.name,file});
+    }
+
+    if(recs.length){
+      const topLevelCount=items.length||fallbackFiles.length||resolvedHandles.length;
+      const label=topLevelCount===1?(resolvedHandles[0]?.name||recs[0]?.path||'Dropped item'):`Dropped ${topLevelCount} items`;
+      await loadDroppedFiles(recs,label);
+      return;
+    }
+    log('Drop contained no readable files.','warn');
+  }catch(err){log(`Drop failed: ${err.message||err}`,'error');alert(`Drop failed:\n${err.message||err}`);}
+}
+
+async function scanProject(){
+  if(!state.root)return;
+  state.cancel=false;setBusy(true,'Scanning project…');resetLog();log(`Scanning ${state.rootName}…`);
+  const token=++state.scanToken;
+  try{
+    setProgress(0,1,'Enumerating files…');
+    const entries=await walkDirectory(state.root);
+    checkCancel();
+    state.files=new Map();state.images=[];state.imageMap=new Map();state.basenameMap=new Map();state.textFiles=[];state.refsByAsset=new Map();state.uncertainByAsset=new Map();state.scanGaps=[];state.dynamicRefs=[];state.ambiguousRefs=[];
+    let done=0;
+    for(const entry of entries){
+      checkCancel();
+      const file=await entry.handle.getFile();
+      const e=ext(entry.path);
+      const rec={path:entry.path,handle:entry.handle,size:file.size,lastModified:file.lastModified,type:file.type||mimeForExt(e),ext:e};
+      state.files.set(entry.path,rec);
+      if(IMAGE_EXTS.has(e)){
+        const asset={...rec,convertible:CONVERTIBLE_EXTS.has(e),selected:CONVERTIBLE_EXTS.has(e),qualityOverride:null,refs:[],uncertainRefs:[],analysis:null,outputPath:null,collision:false,sidecars:[]};
+        state.images.push(asset);state.imageMap.set(asset.path,asset);
+        const base=basename(asset.path).toLowerCase();if(!state.basenameMap.has(base))state.basenameMap.set(base,[]);state.basenameMap.get(base).push(asset.path);
+      }else if(!simpleMode()&&TEXT_EXTS.has(e)){
+        if(file.size<=MAX_TEXT_BYTES)state.textFiles.push(rec);
+        else state.scanGaps.push({path:entry.path,size:file.size,reason:`Text-like file exceeds ${human(MAX_TEXT_BYTES)} scan limit`});
+      }
+      done++;if(done%35===0){setProgress(done,entries.length,`Indexing files ${done}/${entries.length}`);await new Promise(r=>setTimeout(r,0));}
+    }
+    if(!simpleMode()){const lowerPaths=new Map();for(const path of state.files.keys()){const k=path.toLowerCase();if(!lowerPaths.has(k))lowerPaths.set(k,[]);lowerPaths.get(k).push(path);}
+      for(const a of state.images){for(const suffix of ['.meta','.import']){const hits=lowerPaths.get((a.path+suffix).toLowerCase())||[];a.sidecars.push(...hits);}}}
+    assignOutputPaths();
+    if(!simpleMode())await scanReferences();
+    else for(const a of state.images){a.refs=[];a.uncertainRefs=[];a.dynamicRefs=[];a.ambiguousRefs=[];}
+    await loadBackups();
+    if(token!==state.scanToken)return;
+    els.scanStamp.textContent=`Scanned ${new Date().toLocaleString()}`;
+    log(simpleMode()?`Simple scan complete: ${state.images.length} image(s). References intentionally skipped.`:`Scan complete: ${state.images.length} images, ${state.textFiles.length} text files, ${state.scanGaps.length} scan gap(s), ${state.dynamicRefs.length} dynamic reference(s), ${state.ambiguousRefs.length} ambiguous reference(s).`);
+    renderAll();
+  }catch(err){if(err?.name==='AbortError')log('Scan cancelled.','warn');else{log(err.message||String(err),'error');alert(`Scan failed:\n${err.message||err}`);}}
+  finally{state.cancel=false;setProgress(0,1,'Idle');setBusy(false);}
+}
+
+function assignOutputPaths(){
+  const reservedLower=new Set([...state.files.keys()].map(p=>p.toLowerCase()));
+  for(const a of state.images){
+    if(!a.convertible){a.outputPath=a.path;continue;}
+    if(a.ext==='webp'){a.outputPath=a.path;a.collision=false;continue;}
+    const dir=dirname(a.path),base=stem(a.path);let candidate=joinPath(dir,`${base}.webp`);let collision=reservedLower.has(candidate.toLowerCase());
+    if(collision){const suffix=a.ext||'image';candidate=joinPath(dir,`${base}-${suffix}.webp`);let n=2;while(reservedLower.has(candidate.toLowerCase()))candidate=joinPath(dir,`${base}-${suffix}-${n++}.webp`);}
+    a.outputPath=candidate;a.collision=collision;reservedLower.add(candidate.toLowerCase());
+  }
+}
+
+function candidateFromRef(raw,filePath){
+  if(!raw)return null;const trimmed=raw.trim();if(!trimmed||isExternal(trimmed))return null;
+  const dynamic=/\$\{|\{\{|<%|%>/.test(trimmed);
+  const {path:core,suffix}=splitSuffix(trimmed);if(!/\.(png|jpe?g|webp)$/i.test(core))return dynamic?{dynamic:true,raw:trimmed}:null;
+  if(dynamic)return{dynamic:true,raw:trimmed};
+  const hasBackslash=core.includes('\\'),hasSlash=core.includes('/'),usesBackslash=hasBackslash&&!hasSlash,mixedSeparators=hasBackslash&&hasSlash;
+  const backslashToken=usesBackslash?(core.match(/\\+/)?.[0]||'\\'):null;
+  const normalizedCore=slash(core),baseDir=dirname(filePath),candidates=[];
+  if(normalizedCore.startsWith('/'))candidates.push({path:normalizePath(normalizedCore.slice(1)),mode:'rootAbs'});
+  else{
+    const rel=normalizePath(joinPath(baseDir,normalizedCore));if(rel)candidates.push({path:rel,mode:'relative'});
+    const root=normalizePath(normalizedCore);if(root&&(!rel||root!==rel))candidates.push({path:root,mode:'rootFallback'});
+  }
+  for(const c of candidates){if(c.path&&state.imageMap.has(c.path))return{assetPath:c.path,mode:c.mode,raw:trimmed,core:normalizedCore,suffix,usesBackslash,mixedSeparators,backslashToken,hadDotSlash:/^\.\//.test(trimmed),hadLeadingSlash:/^[\/]/.test(trimmed)};}
+  const base=basename(normalizedCore).toLowerCase(),matches=state.basenameMap.get(base)||[];
+  if(matches.length===1)return{uncertainAssetPath:matches[0],raw:trimmed,suffix,reason:'Unique basename only; path could not be resolved safely.'};
+  if(matches.length>1)return{ambiguous:true,raw:trimmed,matches:[...matches],reason:`Ambiguous basename matches ${matches.length} scanned assets.`};
+  return null;
+}
+
+function extractReferenceCandidates(text,filePath){
+  const found=[];const occupied=[];const add=(raw,start,end,kind)=>{if(!raw||occupied.some(([a,b])=>start>=a&&end<=b))return;found.push({raw,start,end,kind});occupied.push([start,end]);};
+  // Quoted values: JS/JSON/HTML/CSS and template strings.
+  const quoted=/(["'`])([^"'`\r\n]{1,2048}?\.(?:png|jpe?g|webp)(?:[?#][^"'`\r\n]*)?)\1/gi;
+  let m;
+  while((m=quoted.exec(text))){const raw=m[2],offset=m[0].indexOf(raw),start=m.index+offset,end=start+raw.length;add(raw,start,end,'quoted');}
+  // CSS url(...) without quotes.
+  const ur=/url\(\s*([^'"\s][^)]*?\.(?:png|jpe?g|webp)(?:[?#][^\s)]*)?)\s*\)/gi;
+  while((m=ur.exec(text))){const raw=m[1].trim(),offset=m[0].indexOf(raw),start=m.index+offset,end=start+raw.length;add(raw,start,end,'css-url');}
+  // Common unquoted HTML-like attributes and srcset.
+  if(['html','htm','vue','svelte'].includes(ext(filePath))){
+    const ar=/\b(?:src|href|poster)\s*=\s*([^\s"'=<>`]+?\.(?:png|jpe?g|webp)(?:[?#][^\s"'=<>`]*)?)/gi;
+    while((m=ar.exec(text))){const raw=m[1],offset=m[0].indexOf(raw),start=m.index+offset,end=start+raw.length;add(raw,start,end,'html-attr');}
+    const sr=/\bsrcset\s*=\s*(["'])([\s\S]*?)\1/gi;
+    while((m=sr.exec(text))){const body=m[2],bodyStart=m.index+m[0].indexOf(body);const tr=/(?:^|,)\s*([^\s,]+?\.(?:png|jpe?g|webp)(?:[?#][^\s,]*)?)/gi;let sm;while((sm=tr.exec(body))){const raw=sm[1],local=sm.index+sm[0].indexOf(raw),start=bodyStart+local,end=start+raw.length;add(raw,start,end,'srcset');}}
+  }
+  // Spine atlas and other line-oriented manifests where an image path can appear bare on its own line.
+  if(ext(filePath)==='atlas'||ext(filePath)==='txt'){
+    let pos=0;for(const line of text.split(/\n/)){const clean=line.replace(/\r$/,''),lead=clean.match(/^\s*/)?.[0].length||0,val=clean.trim();if(/^[^:]+\.(?:png|jpe?g|webp)(?:[?#].*)?$/i.test(val)){const start=pos+lead,end=start+val.length;add(val,start,end,'line');}pos+=line.length+1;}
+  }
+  return found.sort((a,b)=>a.start-b.start);
+}
+
+async function isProbablyTextFile(file){const buf=new Uint8Array(await file.slice(0,Math.min(file.size,8192)).arrayBuffer());for(const b of buf)if(b===0)return false;return true;}
+
+async function scanReferences(){
+  state.refsByAsset=new Map(state.images.map(a=>[a.path,[]]));state.uncertainByAsset=new Map(state.images.map(a=>[a.path,[]]));state.dynamicRefs=[];state.ambiguousRefs=[];
+  let done=0,total=state.textFiles.length;
+  for(const tf of state.textFiles){
+    checkCancel();
+    try{
+      const file=await tf.handle.getFile();if(!(await isProbablyTextFile(file))){state.scanGaps.push({path:tf.path,size:file.size,reason:'Text-like extension contains binary/NUL data'});continue;}const text=await file.text();
+      const candidates=extractReferenceCandidates(text,tf.path);
+      for(const c of candidates){
+        const resolved=candidateFromRef(c.raw,tf.path);if(!resolved)continue;
+        if(resolved.dynamic){state.dynamicRefs.push({filePath:tf.path,raw:c.raw,kind:c.kind});continue;}
+        if(resolved.ambiguous){state.ambiguousRefs.push({filePath:tf.path,raw:c.raw,kind:c.kind,reason:resolved.reason,matches:resolved.matches});continue;}
+        if(resolved.assetPath){
+          if(NON_REWRITE_TEXT_EXTS.has(tf.ext)||resolved.mixedSeparators){state.uncertainByAsset.get(resolved.assetPath)?.push({filePath:tf.path,raw:c.raw,kind:c.kind,reason:NON_REWRITE_TEXT_EXTS.has(tf.ext)?`Metadata file .${tf.ext} is scan-only in generic mode.`:'Mixed slash/backslash separators are not rewritten safely.'});}
+          else{const ref={filePath:tf.path,fileHandle:tf.handle,start:c.start,end:c.end,raw:c.raw,kind:c.kind,...resolved,fileLastModified:file.lastModified,fileSize:file.size};state.refsByAsset.get(resolved.assetPath)?.push(ref);}
+        }else if(resolved.uncertainAssetPath){
+          if(NON_REWRITE_TEXT_EXTS.has(tf.ext)){state.uncertainByAsset.get(resolved.uncertainAssetPath)?.push({filePath:tf.path,raw:c.raw,kind:c.kind,reason:`Metadata file .${tf.ext} is scan-only in generic mode.`});}
+          else{const ref={filePath:tf.path,fileHandle:tf.handle,start:c.start,end:c.end,raw:c.raw,kind:c.kind,mode:'extensionOnly',soft:true,suffix:splitSuffix(c.raw).suffix||'',fileLastModified:file.lastModified,fileSize:file.size,reason:resolved.reason};state.refsByAsset.get(resolved.uncertainAssetPath)?.push(ref);}
+        }
+      }
+    }catch(err){state.scanGaps.push({path:tf.path,size:tf.size,reason:`Could not scan: ${err.message||err}`});log(`Could not scan text file ${tf.path}: ${err.message||err}`,'warn');}
+    done++;if(done%20===0){setProgress(done,total,`Scanning references ${done}/${total}`);await new Promise(r=>setTimeout(r,0));}
+  }
+  for(const a of state.images){a.refs=state.refsByAsset.get(a.path)||[];a.uncertainRefs=state.uncertainByAsset.get(a.path)||[];}
+  classifyAssetScopedRisks();
+}
+
+function projectHasGlobalScanRisk(){return state.scanGaps.length>0||state.dynamicRefs.length>0||state.ambiguousRefs.length>0;}
+function regexEscape(s){return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+function dynamicPatternRegex(pattern){
+  const TOKEN='__PWO_DYNAMIC_TOKEN__';let p=slash(pattern).replace(/\$\{[^}]*\}|\{\{[^}]*\}\}|<%[\s\S]*?%>/g,TOKEN);p=normalizePath(p);if(!p)return null;const source=regexEscape(p).split(TOKEN).join('.+?');try{return new RegExp(`^${source}$`,'i');}catch{return null;}
+}
+function dynamicRefMatchesAsset(ref,a){
+  const raw=String(ref?.raw||'').trim();if(!raw)return false;const core=splitSuffix(raw).path;if(!/\.(png|jpe?g|webp)$/i.test(core))return false;const normalized=slash(core),patterns=[];
+  if(normalized.startsWith('/'))patterns.push(normalized.slice(1));else{const base=dirname(ref.filePath);patterns.push((base?base+'/':'')+normalized);patterns.push(normalized);}
+  return patterns.some(p=>{const re=dynamicPatternRegex(p);return re?re.test(a.path):false;});
+}
+function classifyAssetScopedRisks(){
+  for(const a of state.images){a.dynamicRefs=state.dynamicRefs.filter(r=>dynamicRefMatchesAsset(r,a));a.ambiguousRefs=state.ambiguousRefs.filter(r=>Array.isArray(r.matches)&&r.matches.includes(a.path));}
+}
+function assetHasLocalRisk(a){return a.uncertainRefs.length>0||a.refs.length===0||(a.dynamicRefs?.length||0)>0||(a.ambiguousRefs?.length||0)>0;}
+function assetRiskReasons(a){
+  const reasons=[];
+  if(a.sidecars?.length)reasons.push(`Metadata sidecar: ${a.sidecars.join(', ')}`);
+  if(a.uncertainRefs.length)reasons.push(`${a.uncertainRefs.length} unresolved/non-rewritable reference(s)`);
+  if(a.refs.length===0)reasons.push('No static reference detected');
+  if(a.dynamicRefs?.length)reasons.push(`${a.dynamicRefs.length} dynamic reference(s) can match this asset`);
+  if(a.ambiguousRefs?.length)reasons.push(`${a.ambiguousRefs.length} ambiguous reference(s) can match this asset`);
+  if(state.scanGaps.length)reasons.push(`${state.scanGaps.length} project scan gap(s) exist (advisory; not asset-specific)`);
+  return reasons;
+}
+function shouldRemoveOriginal(a){
+  if(a.outputPath===a.path)return false; // Existing WebP is replaced in place, never deleted as a separate source.
+  if(simpleMode())return state.sourceKind==='directory'&&els.simpleRemoveOriginal.checked;
+  if(!els.rewriteRefs.checked)return false;
+  if(a.sidecars?.length)return false;
+  return !assetHasLocalRisk(a)||els.forceRiskyRemove.checked;
+}
+function renderAll(){renderStats();renderTable();updateSummary();renderBackupControls();refreshControls();}
+function renderStats(){
+  const refs=state.images.reduce((n,a)=>n+a.refs.length,0),risks=state.scanGaps.length+state.dynamicRefs.length+state.ambiguousRefs.length;
+  els.statImages.textContent=state.images.length;els.statConvertible.textContent=state.images.filter(a=>a.convertible).length;els.statWebp.textContent=state.images.filter(a=>a.ext==='webp').length;els.statRefs.textContent=refs;els.statText.textContent=state.textFiles.length;els.statRisks.textContent=risks;els.viewRisksBtn.disabled=!risks||state.busy;
+}
+function filterAsset(a){const q=els.searchInput.value.trim().toLowerCase();if(q&&!a.path.toLowerCase().includes(q))return false;switch(els.statusFilter.value){case'selected':return a.selected;case'referenced':return !simpleMode()&&a.refs.length>0;case'unreferenced':return !simpleMode()&&a.convertible&&a.refs.length===0;case'warning':return a.ext==='webp'?false:(simpleMode()?a.collision:(a.collision||a.sidecars?.length||assetHasLocalRisk(a)));case'webp':return a.ext==='webp';default:return true;}}
+function analysisBadge(a){
+  if(!a.convertible)return'<span class="muted">—</span>';
+  if(!analysisCurrent(a))return a.collision?'<span class="pill warn">Needs analysis · output renamed</span>':'<span class="muted tiny">Needs analysis</span>';
+  if(a.analysis.action==='convert')return`<span class="pill good">${a.ext==='webp'?'Recompress':'WebP'} · -${a.analysis.savingPct.toFixed(1)}%</span> <span class="tiny muted">${human(a.analysis.webpBytes)}</span>`;
+  if(a.analysis.action==='keep')return`<span class="pill warn">Keep original</span> <span class="tiny muted">${escapeHtml(a.analysis.reason)}</span>`;
+  return`<span class="pill bad">Failed</span> <span class="tiny muted">${escapeHtml(a.analysis.reason||'Encode failed')}</span>`;
+}
+function refsCell(a){if(!a.convertible&&a.ext==='webp'&&a.refs.length===0)return'<span class="muted">—</span>';const soft=a.refs.filter(r=>r.soft).length,uncertain=a.uncertainRefs.length,dyn=a.dynamicRefs?.length||0,amb=a.ambiguousRefs?.length||0;let html=`<button class="refs-btn" data-ref-path="${escapeHtml(a.path)}">${a.refs.length} refs</button>`;if(soft)html+=` <span class="pill info" title="Unique-basename static references will be rewritten by preserving their current path and changing only the output filename">${soft} soft</span>`;if(uncertain)html+=` <span class="pill warn" title="Potential references were found but cannot be rewritten safely">+${uncertain}?</span>`;if(dyn)html+=` <span class="pill warn" title="Dynamic path patterns can match this asset">${dyn} dyn</span>`;if(amb)html+=` <span class="pill warn" title="Ambiguous references can match this asset">${amb} amb</span>`;if(a.convertible&&a.ext!=='webp'&&a.refs.length===0&&!dyn&&!amb)html+=' <span class="pill warn">No static refs</span>';else if(a.ext==='webp'&&a.refs.length===0)html+=' <span class="pill info">path unchanged</span>';return html;}
+function riskCell(a){
+  if(!a.convertible)return'<span class="muted">—</span>';
+  if(a.ext==='webp')return'<span class="pill info" title="Existing WebP is recompressed and replaces itself after backup">In-place</span>';
+  if(a.sidecars?.length)return'<span class="pill bad" title="Generic mode never removes assets with detected metadata sidecars">Side-by-side only</span>';
+  if(!els.rewriteRefs.checked)return'<span class="pill info">Side-by-side</span>';
+  if(!assetHasLocalRisk(a))return'<span class="pill good">Safe delete</span>';
+  const title=escapeHtml(assetRiskReasons(a).filter(r=>!r.includes('project scan gap')).join(' · '));
+  if(els.forceRiskyRemove.checked)return`<span class="pill bad" title="${title}">Force delete</span>`;
+  return`<span class="pill warn" title="${title}">Keep source</span>`;
+}
+function diskEffectCell(a){
+  if(!a.convertible||!analysisCurrent(a))return'<span class="disk-neutral">—</span>';
+  if(a.analysis.action!=='convert')return'<span class="disk-neutral">No change</span>';
+  if(simpleMode()&&state.sourceKind==='drop-files'){const saved=a.size-a.analysis.webpBytes;return saved>=0?`<span class="disk-good">-${human(saved)} · ${pct(saved,a.size)} export</span>`:`<span class="disk-bad">+${human(-saved)} export</span>`;}
+  if(a.outputPath===a.path){const saved=a.size-a.analysis.webpBytes;return saved>=0?`<span class="disk-good">-${human(saved)} · ${pct(saved,a.size)} in-place</span>`:`<span class="disk-bad">+${human(-saved)} in-place</span>`;}
+  const remove=shouldRemoveOriginal(a),delta=remove?(a.analysis.webpBytes-a.size):a.analysis.webpBytes;
+  if(delta<0)return`<span class="disk-good">-${human(-delta)} · ${pct(-delta,a.size)}</span>`;
+  if(delta>0)return`<span class="disk-bad">+${human(delta)}${remove?'':' · source kept'}</span>`;
+  return'<span class="disk-neutral">0 B</span>';
+}
+function renderTable(){
+  const list=state.images.filter(filterAsset);
+  const has=hasSource();els.assetTableWrap.hidden=!has||state.images.length===0;els.assetTableEmpty.hidden=has&&state.images.length>0;
+  if(has&&state.images.length===0){els.assetTableEmpty.hidden=false;els.assetTableEmpty.textContent='No PNG/JPEG/WebP images found in the selected source.';}else if(!has)els.assetTableEmpty.textContent=simpleMode()?'Scan a folder or drop image files/folder here to begin.':'Choose a project folder to begin.';
+  els.assetTbody.innerHTML=list.map(a=>`<tr data-path="${escapeHtml(a.path)}">
+    <td><input class="asset-check" type="checkbox" ${a.selected?'checked':''} ${a.convertible?'':'disabled'}></td>
+    <td><div class="asset-path">${escapeHtml(a.path)}</div>${a.collision?`<div class="tiny muted">Target exists; output → ${escapeHtml(a.outputPath)}</div>`:''}${a.sidecars?.length?`<div class="tiny" style="color:var(--bad)">Sidecar: ${escapeHtml(a.sidecars.join(', '))}</div>`:''}${a.uncertainRefs.length?'<div class="tiny" style="color:var(--warn)">Non-rewritable reference(s)</div>':''}${a.dynamicRefs?.length?'<div class="tiny" style="color:var(--warn)">Matching dynamic path(s)</div>':''}${a.ambiguousRefs?.length?'<div class="tiny" style="color:var(--warn)">Matching ambiguous reference(s)</div>':''}</td>
+    <td><span class="pill">${a.ext.toUpperCase()}</span></td>
+    <td>${human(a.size)}</td>
+    <td class="reference-only">${refsCell(a)}</td>
+    <td class="reference-only">${riskCell(a)}</td>
+    <td>${a.convertible?`<input class="quality-override" type="number" min="50" max="100" placeholder="${els.qualityNumber.value}" value="${a.qualityOverride??''}" title="Blank = global quality">`:'—'}</td>
+    <td>${analysisBadge(a)}</td>
+    <td>${diskEffectCell(a)}</td>
+    <td><span class="asset-path tiny">${escapeHtml(a.outputPath||a.path)}</span>${a.ext==='webp'?`<div class="tiny muted">${simpleMode()&&state.sourceKind==='drop-files'?'recompress for export':'recompress in place'}</div>`:''}</td>
+  </tr>`).join('');
+  const visible=list.filter(a=>a.convertible),selected=visible.filter(a=>a.selected);els.headerCheck.checked=visible.length>0&&selected.length===visible.length;els.headerCheck.indeterminate=selected.length>0&&selected.length<visible.length;
+}
+function refreshControls(){const has=hasSource(),selected=state.images.some(a=>a.convertible&&a.selected);els.rescanBtn.disabled=!state.root||state.busy;els.selectVisibleBtn.disabled=!has||state.busy;els.selectAllBtn.disabled=!has||state.busy;els.selectNoneBtn.disabled=!has||state.busy;els.statusFilter.disabled=!has||state.busy;els.searchInput.disabled=!has||state.busy;els.analyzeBtn.disabled=!selected||state.busy;els.optimizeBtn.disabled=!selected||state.busy;els.headerCheck.disabled=!has||state.busy;els.viewRisksBtn.disabled=simpleMode()||!has||state.busy||(state.scanGaps.length+state.dynamicRefs.length+state.ambiguousRefs.length===0);els.simpleRemoveOriginal.disabled=state.busy||state.sourceKind==='drop-files';renderBackupControls();}
+function updateSummary(){
+  const selected=state.images.filter(a=>a.convertible&&a.selected);let before=0,after=0,refs=0,remove=0,retain=0,overwrite=0;
+  for(const a of selected){
+    before+=a.size;
+    if(analysisCurrent(a)&&a.analysis.action==='convert'){
+      if(simpleMode()&&state.sourceKind==='drop-files'){after+=a.analysis.webpBytes;retain++;}
+      else if(a.outputPath===a.path){after+=a.analysis.webpBytes;overwrite++;}
+      else{const removeOriginal=shouldRemoveOriginal(a);after+=a.analysis.webpBytes+(removeOriginal?0:a.size);refs+=!simpleMode()&&els.rewriteRefs.checked?a.refs.length:0;if(removeOriginal)remove++;else retain++;}
+    }else after+=a.size;
+  }
+  const delta=before-after;els.sumBefore.textContent=human(before);els.sumAfter.textContent=human(after);els.sumSaved.textContent=delta>=0?`-${human(delta)} · ${pct(delta,before)}`:`+${human(-delta)} · side-by-side`;els.sumRefEdits.textContent=refs;els.sumRemove.textContent=remove;els.sumRetain.textContent=retain;if(els.sumOverwrite)els.sumOverwrite.textContent=overwrite;
+  if(simpleMode()&&state.sourceKind==='drop-files')els.resultHint.textContent='Dropped-file mode: Expected after and Net image change compare exported WebP files against the dropped originals. Existing dropped WebP files are recompressed for export; originals on disk are untouched.';
+}
+
+function qualityForAsset(a){const n=a.qualityOverride==null||a.qualityOverride===''?+els.qualityNumber.value:+a.qualityOverride;return Math.max(50,Math.min(100,Number.isFinite(n)?n:82))/100;}
+async function decodeImage(blob){
+  if(typeof createImageBitmap==='function'){const bitmap=await createImageBitmap(blob);return{width:bitmap.width,height:bitmap.height,draw(ctx){ctx.drawImage(bitmap,0,0)},close(){try{bitmap.close()}catch(_){}}};}
+  const url=URL.createObjectURL(blob);try{const img=new Image();img.decoding='async';await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('Image decode failed'));img.src=url;});return{width:img.naturalWidth,height:img.naturalHeight,draw(ctx){ctx.drawImage(img,0,0)},close(){}};}finally{URL.revokeObjectURL(url);}
+}
+async function encodeWebP(file,quality){
+  const sourceBlob=file.slice(0,file.size,file.type||mimeForExt(ext(file.name||'')));const decoded=await decodeImage(sourceBlob);
+  try{if(!decoded.width||!decoded.height)throw new Error('Decoded image has invalid dimensions');const canvas=document.createElement('canvas');canvas.width=decoded.width;canvas.height=decoded.height;const ctx=canvas.getContext('2d',{alpha:true});if(!ctx)throw new Error('Canvas 2D context unavailable');ctx.clearRect(0,0,canvas.width,canvas.height);decoded.draw(ctx);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));if(!blob||blob.type!=='image/webp')throw new Error('This browser cannot encode WebP');return{blob,width:decoded.width,height:decoded.height};}finally{decoded.close();}
+}
+
+async function analyzeSelected(){
+  const selected=state.images.filter(a=>a.convertible&&a.selected);if(!selected.length)return false;
+  state.cancel=false;setBusy(true,'Analyzing selected assets…');const stale=selected.filter(a=>!analysisCurrent(a));log(`Analyzing ${selected.length} selected asset(s); ${selected.length-stale.length} cached.`);
+  try{
+    let i=0;for(const a of selected){checkCancel();setProgress(i,selected.length,`${analysisCurrent(a)?'Checking':'Encoding'} ${i+1}/${selected.length}: ${a.path}`);
+      if(!analysisCurrent(a))try{
+        const file=await getAssetFile(a);if(file.size!==a.size||file.lastModified!==a.lastModified)throw new Error('Source changed since scan. Rescan or drop again.');
+        const configKey=analysisKeyForAsset(a),q=qualityForAsset(a),encoded=await encodeWebP(file,q),webpBytes=encoded.blob.size,saved=file.size-webpBytes,ratio=file.size?saved/file.size:0;let action='convert',reason='';
+        if(els.keepLarger.checked&&saved<=0){action='keep';reason='WebP is not smaller';}
+        else if(els.keepBelowThreshold.checked&&ratio<(Math.max(0,+els.minSaving.value||0)/100)){action='keep';reason=`Saving ${Math.max(0,ratio*100).toFixed(1)}% is below threshold`;}
+        a.analysis={action,reason,blob:null,webpBytes,width:encoded.width,height:encoded.height,saved,savingPct:ratio*100,quality:q,configKey};
+      }catch(err){a.analysis={action:'failed',reason:err.message||String(err),blob:null,webpBytes:a.size,savingPct:0,configKey:analysisKeyForAsset(a)};log(`Analyze failed: ${a.path}: ${err.message||err}`,'warn');}
+      i++;if(i%4===0)await new Promise(r=>setTimeout(r,0));
+    }
+    renderTable();updateSummary();const convert=selected.filter(a=>analysisCurrent(a)&&a.analysis.action==='convert').length,keep=selected.filter(a=>analysisCurrent(a)&&a.analysis.action==='keep').length,failed=selected.filter(a=>analysisCurrent(a)&&a.analysis.action==='failed').length;log(`Analysis complete: ${convert} convert, ${keep} keep, ${failed} failed.`);els.resultHint.textContent=simpleMode()&&state.sourceKind==='drop-files'?'Dropped-file mode: Disk effect shows export compression; originals on disk are untouched.':'WebP analysis uses actual browser encoding. Disk effect is the real project footprint after source-retention policy.';return true;
+  }catch(err){if(err?.name==='AbortError')log('Analysis cancelled.','warn');else{log(err.message||String(err),'error');alert(`Analysis failed:
+${err.message||err}`);}return false;}
+  finally{state.cancel=false;setProgress(0,1,'Idle');setBusy(false);}
+}
+
+function buildNewRawRef(ref,newAssetPath){
+  if(ref.mode==='extensionOnly'){const parts=splitSuffix(ref.raw),rawCore=parts.path,lastSlash=Math.max(rawCore.lastIndexOf('/'),rawCore.lastIndexOf('\\')),prefix=lastSlash>=0?rawCore.slice(0,lastSlash+1):'';return prefix+basename(newAssetPath)+(parts.suffix||'');}
+  let core;
+  if(ref.mode==='rootAbs')core='/'+newAssetPath;
+  else if(ref.mode==='rootFallback')core=newAssetPath;
+  else{core=relativePath(dirname(ref.filePath),newAssetPath);if(ref.hadDotSlash&&!core.startsWith('.'))core='./'+core;}
+  if(ref.usesBackslash){const token=ref.backslashToken||'\\';core=core.split('/').join(token);}
+  return core+(ref.suffix||'');
+}
+
+async function getDirHandleForPath(root,path,create=false){let dir=root;for(const seg of (dirname(path)||'').split('/').filter(Boolean))dir=await dir.getDirectoryHandle(seg,{create});return dir;}
+async function getFileHandleByPath(root,path,create=false){const dir=await getDirHandleForPath(root,path,create);return dir.getFileHandle(basename(path),{create});}
+async function writeBlobToPath(root,path,data){const fh=await getFileHandleByPath(root,path,true);const w=await fh.createWritable();try{await w.write(data);await w.close();}catch(err){try{await w.abort?.()}catch(_){}throw err;}return fh;}
+async function removePath(root,path){const dir=await getDirHandleForPath(root,path,false);await dir.removeEntry(basename(path));}
+async function existsPath(root,path){try{await getFileHandleByPath(root,path,false);return true;}catch{return false;}}
+async function ensureDirPath(root,path){let dir=root;for(const seg of slash(path).split('/').filter(Boolean))dir=await dir.getDirectoryHandle(seg,{create:true});return dir;}
+async function copyProjectFileToBackup(projectPath,backupRoot){const src=await getFileHandleByPath(state.root,projectPath,false);const file=await src.getFile();await writeBlobToPath(backupRoot,projectPath,file);return{size:file.size,lastModified:file.lastModified};}
+
+async function loadBackups(){
+  state.backups=[];
+  try{
+    const base=await state.root.getDirectoryHandle('.backup',{create:false});
+    for await(const [name,handle] of base.entries()){
+      if(handle.kind!=='directory')continue;
+      try{const mf=await handle.getFileHandle('backup-manifest.json',{create:false}),manifest=JSON.parse(await (await mf.getFile()).text());if(manifest?.tool==='Project WebP Optimizer'&&Array.isArray(manifest.assets))state.backups.push({name,path:`.backup/${name}`,handle,manifest});}catch(_){/* ignore incomplete/non-tool backup */}
+    }
+    state.backups.sort((a,b)=>b.name.localeCompare(a.name));
+  }catch(_){/* no backup folder yet */}
+  renderBackupControls();
+}
+function renderBackupControls(){
+  if(!els.backupSelect)return;const prev=els.backupSelect.value;els.backupSelect.innerHTML='';
+  if(!state.root||!state.backups.length){const o=document.createElement('option');o.textContent='No backups';o.value='';els.backupSelect.appendChild(o);els.backupSelect.disabled=true;els.restoreBackupBtn.disabled=true;els.deleteBackupBtn.disabled=true;return;}
+  for(const b of state.backups){const o=document.createElement('option');o.value=b.path;o.textContent=`${b.name} · ${b.manifest.assets.length} asset(s)`;els.backupSelect.appendChild(o);}
+  const preferred=state.backups.some(b=>b.path===prev)?prev:(state.backups.some(b=>b.path===state.lastBackupPath)?state.lastBackupPath:state.backups[0].path);els.backupSelect.value=preferred;els.backupSelect.disabled=state.busy;els.restoreBackupBtn.disabled=state.busy;els.deleteBackupBtn.disabled=state.busy;
+}
+function selectedBackup(){return state.backups.find(b=>b.path===els.backupSelect.value)||null;}
+async function restoreSelectedBackup(){
+  const b=selectedBackup();if(!b||state.busy)return;const assets=b.manifest.assets||[],textFiles=b.manifest.modifiedTextFiles||[];
+  if(!confirm(`Restore ${b.path}?
+
+This overwrites the backed-up originals and ${textFiles.length} text file(s). Generated side-by-side WebP files are removed only when they still match the recorded output size. In-place WebP recompressions are restored from backup.`))return;
+  state.cancel=false;setBusy(true,'Restoring backup…');
+  try{
+    const paths=[...new Set([...assets.map(a=>a.from),...textFiles])];let i=0;
+    for(const path of paths){setProgress(i,paths.length,`Restoring ${path}`);const src=await getFileHandleByPath(b.handle,path,false),file=await src.getFile();await writeBlobToPath(state.root,path,file);i++;}
+    for(const a of assets){if(!a.to||a.to===a.from||!(await existsPath(state.root,a.to)))continue;try{const current=await getFileHandleByPath(state.root,a.to,false).then(h=>h.getFile());if(Number.isFinite(a.webpBytes)&&current.size!==a.webpBytes){log(`Restore kept changed output ${a.to} because its size no longer matches the backup manifest.`,'warn');continue;}await removePath(state.root,a.to);}catch(err){log(`Could not remove generated output ${a.to}: ${err.message||err}`,'warn');}}
+    log(`Backup restored: ${b.path}.`);alert(`Restore complete.
+
+Backup: ${b.path}`);await scanProject();
+  }catch(err){log(`Restore failed: ${err.message||err}`,'error');alert(`Restore failed:
+
+${err.message||err}`);}finally{state.cancel=false;setProgress(0,1,'Idle');setBusy(false);}
+}
+async function deleteSelectedBackup(){
+  const b=selectedBackup();if(!b||state.busy)return;if(!confirm(`Delete backup ${b.path}?
+
+This cannot be undone by this tool.`))return;
+  setBusy(true,'Deleting backup…');try{const base=await state.root.getDirectoryHandle('.backup',{create:false});await base.removeEntry(b.name,{recursive:true});if(state.lastBackupPath===b.path)state.lastBackupPath='';log(`Deleted backup ${b.path}.`);await loadBackups();}catch(err){log(`Delete backup failed: ${err.message||err}`,'error');alert(`Delete backup failed:
+${err.message||err}`);}finally{setProgress(0,1,'Idle');setBusy(false);}
+}
+
+function collectTransaction(){
+  const converting=state.images.filter(a=>a.convertible&&a.selected&&analysisCurrent(a)&&a.analysis?.action==='convert');
+  const inPlace=converting.filter(a=>a.outputPath===a.path),pathChanging=converting.filter(a=>a.outputPath!==a.path);
+  const removing=pathChanging.filter(shouldRemoveOriginal),retained=pathChanging.filter(a=>!shouldRemoveOriginal(a)),pathMap=new Map(pathChanging.map(a=>[a.path,a.outputPath]));
+  const refsByFile=new Map();if(!simpleMode()&&els.rewriteRefs.checked){for(const a of pathChanging){for(const ref of a.refs){if(!refsByFile.has(ref.filePath))refsByFile.set(ref.filePath,[]);refsByFile.get(ref.filePath).push({ref,newAssetPath:a.outputPath,oldAssetPath:a.path});}}}
+  return{converting,inPlace,pathChanging,removing,retained,pathMap,refsByFile};
+}
+
+async function assertOutputPathFree(path){const dir=await getDirHandleForPath(state.root,path,false),target=basename(path).toLowerCase();for await(const [name] of dir.entries())if(name.toLowerCase()===target)throw new Error(`Output path now exists: ${path}. Rescan before optimizing.`);}
+async function validateTransactionFreshness(tx){
+  for(const a of tx.converting){const f=await getAssetFile(a);if(f.size!==a.size||f.lastModified!==a.lastModified)throw new Error(`Source changed since scan: ${a.path}. Rescan before optimizing.`);}
+  for(const [filePath,repls] of tx.refsByFile){const file=await getFileHandleByPath(state.root,filePath,false).then(h=>h.getFile());const first=repls[0]?.ref;if(first&&(file.size!==first.fileSize||file.lastModified!==first.fileLastModified))throw new Error(`Reference file changed since scan: ${filePath}. Rescan before optimizing.`);}
+  const entries=await walkDirectory(state.root),currentLower=new Map();for(const e of entries){const k=e.path.toLowerCase();if(!currentLower.has(k))currentLower.set(k,[]);currentLower.get(k).push(e.path);}
+  const outputs=new Set();for(const a of tx.converting){const key=a.outputPath.toLowerCase();if(outputs.has(key))throw new Error(`Two outputs collide case-insensitively: ${a.outputPath}`);outputs.add(key);const hits=currentLower.get(key)||[],blocking=a.outputPath===a.path?hits.filter(p=>p!==a.path):hits;if(blocking.length)throw new Error(`Output path now exists (${blocking.join(', ')}). Rescan before optimizing.`);}
+}
+
+async function createBackup(tx){
+  const backupBase=await ensureDirPath(state.root,'.backup'),name=timestampName(),backupRoot=await backupBase.getDirectoryHandle(name,{create:true}),paths=new Set([...tx.converting.map(a=>a.path),...tx.refsByFile.keys()]);let done=0,backupBytes=0;
+  try{
+    for(const p of paths){checkCancel();setProgress(done,paths.size,`Backing up ${p}`);const info=await copyProjectFileToBackup(p,backupRoot);backupBytes+=info.size;done++;}
+    const manifest={tool:'Project WebP Optimizer',version:VERSION,mode:state.mode,createdAt:new Date().toISOString(),project:state.rootName,backupBytes,assets:tx.converting.map(a=>({from:a.path,to:a.outputPath,originalBytes:a.size,webpBytes:a.analysis.webpBytes,quality:a.analysis.quality,removeOriginal:tx.removing.includes(a),riskReasons:simpleMode()?['Simple Mode: references intentionally not scanned']:assetRiskReasons(a),referencesUpdated:!simpleMode()&&els.rewriteRefs.checked?(a.refs?.map(r=>r.filePath)||[]):[]})),modifiedTextFiles:[...tx.refsByFile.keys()]};
+    await writeBlobToPath(backupRoot,'backup-manifest.json',new Blob([JSON.stringify(manifest,null,2)],{type:'application/json'}));return{backupRoot,name,path:`.backup/${name}`,manifest,paths:[...paths]};
+  }catch(err){try{await backupBase.removeEntry(name,{recursive:true});}catch(_){log(`Incomplete backup directory could not be cleaned: .backup/${name}`,'warn');}throw err;}
+}
+
+async function rewriteReferenceFiles(tx){
+  const modified=[];let i=0,total=tx.refsByFile.size;
+  for(const [filePath,items] of tx.refsByFile){checkCancel();setProgress(i,total,`Rewriting ${filePath}`);const fh=await getFileHandleByPath(state.root,filePath,false),file=await fh.getFile();let text=await file.text();const reps=[];
+    for(const item of items){reps.push({start:item.ref.start,end:item.ref.end,old:item.ref.raw,newValue:buildNewRawRef(item.ref,item.newAssetPath)});}
+    reps.sort((a,b)=>b.start-a.start);for(const r of reps){if(text.slice(r.start,r.end)!==r.old)throw new Error(`Reference changed unexpectedly in ${filePath}. Rescan required.`);text=text.slice(0,r.start)+r.newValue+text.slice(r.end);}
+    await writeBlobToPath(state.root,filePath,new Blob([text],{type:file.type||'text/plain'}));modified.push(filePath);i++;
+  }
+  return modified;
+}
+
+async function verifyWebPPath(path,expectedWidth,expectedHeight){const fh=await getFileHandleByPath(state.root,path,false),file=await fh.getFile();if(!file.size)throw new Error(`Output is empty: ${path}`);const decoded=await decodeImage(file.slice(0,file.size,'image/webp'));try{if(!decoded.width||!decoded.height)throw new Error(`Invalid WebP dimensions: ${path}`);if(expectedWidth&&expectedHeight&&(decoded.width!==expectedWidth||decoded.height!==expectedHeight))throw new Error(`Dimension mismatch for ${path}: expected ${expectedWidth}×${expectedHeight}, got ${decoded.width}×${decoded.height}`);}finally{decoded.close();}return file.size;}
+async function verifyReferences(tx){
+  if(simpleMode()||!els.rewriteRefs.checked||!tx.removing.length)return;
+  const removalMap=new Map(tx.removing.map(a=>[a.path,a.outputPath]));let checked=0;
+  for(const tf of state.textFiles){
+    const fh=await getFileHandleByPath(state.root,tf.path,false),file=await fh.getFile();if(!(await isProbablyTextFile(file)))continue;const text=await file.text(),candidates=extractReferenceCandidates(text,tf.path);
+    for(const c of candidates){const resolved=candidateFromRefAgainstMap(c.raw,tf.path,removalMap);if(resolved?.oldPath)throw new Error(`Old reference remains for an asset scheduled for removal: ${resolved.oldPath} in ${tf.path}: ${c.raw}`);}checked++;
+  }
+  const forcedRisky=tx.removing.filter(a=>assetHasLocalRisk(a)).length;if(forcedRisky&&els.forceRiskyRemove.checked)log(`Reference verification passed for scanned static files, but advanced force-delete bypassed local risk on ${forcedRisky} asset(s).`,'warn');
+  else log(`Resolved references verified across ${checked} scanned text file(s).`);
+}
+function candidateFromRefAgainstMap(raw,filePath,pathMap){if(!raw||isExternal(raw))return null;const {path:core}=splitSuffix(raw.trim());if(!/\.(png|jpe?g)$/i.test(core))return null;const norm=slash(core),base=dirname(filePath),cands=norm.startsWith('/')?[normalizePath(norm.slice(1))]:[normalizePath(joinPath(base,norm)),normalizePath(norm)];for(const c of cands){if(c&&pathMap.has(c))return{oldPath:c};}const b=basename(norm).toLowerCase(),matches=[...pathMap.keys()].filter(p=>basename(p).toLowerCase()===b);if(matches.length===1)return{oldPath:matches[0],soft:true};return null;}
+
+async function rollbackTransaction(backupInfo,tx,newPaths){
+  log('Rolling back modified files…','warn');
+  try{
+    for(const p of backupInfo.paths){try{const src=await getFileHandleByPath(backupInfo.backupRoot,p,false),file=await src.getFile();await writeBlobToPath(state.root,p,file);}catch(err){log(`Rollback restore failed for ${p}: ${err.message||err}`,'error');}}
+    for(const p of newPaths){try{if(await existsPath(state.root,p))await removePath(state.root,p);}catch(err){log(`Rollback cleanup failed for ${p}: ${err.message||err}`,'warn');}}
+    log(`Rollback completed from ${backupInfo.path}.`,'warn');
+  }catch(err){log(`Rollback encountered an error: ${err.message||err}`,'error');}
+}
+
+function showTransactionPreview(tx){
+  const refEdits=[...tx.refsByFile.values()].reduce((n,a)=>n+a.length,0),backupBytes=[...new Set([...tx.converting.map(a=>a.path),...tx.refsByFile.keys()])].reduce((n,p)=>n+(state.files.get(p)?.size||0),0);
+  const hardSidecars=simpleMode()?0:tx.pathChanging.filter(a=>a.sidecars?.length).length,localRisk=simpleMode()?0:tx.pathChanging.filter(assetHasLocalRisk).length,globalRisk=!simpleMode()&&projectHasGlobalScanRisk();
+  let warnings='';
+  if(simpleMode())warnings+=`<div class="warning-banner"><b>Simple Mode:</b> references and metadata relationships were not scanned. ${els.simpleRemoveOriginal.checked?'Verified source PNG/JPEG files will be removed after WebP creation.':'Original PNG/JPEG files will be kept side-by-side.'} Existing WebP files are recompressed in place after backup.</div>`;
+  else if(!els.rewriteRefs.checked)warnings+='<div class="warning-banner"><b>Reference rewriting is OFF.</b> All converted assets will be side-by-side; no originals will be removed.</div>';
+  if(hardSidecars)warnings+=`<div class="fatal-banner"><b>${hardSidecars} asset(s) have .meta/.import sidecars.</b> Generic mode will never remove those originals.</div>`;
+  if(globalRisk)warnings+=`<div class="warning-banner"><b>Project-level scan notes:</b> ${state.scanGaps.length} scan gap(s), ${state.dynamicRefs.length} dynamic image reference(s), ${state.ambiguousRefs.length} ambiguous reference(s). Dynamic/ambiguous refs now block deletion only for assets they can actually match; scan gaps remain advisory because they cannot be attributed safely.</div>`;
+  if(localRisk)warnings+=`<div class="warning-banner">${localRisk} converting asset(s) have asset-specific risk (no static refs, non-rewritable refs, or matching dynamic/ambiguous refs). ${els.forceRiskyRemove.checked?'Advanced force-delete may remove them.':'Their originals will be retained.'}</div>`;
+  const refBoxes=simpleMode()?'':`<div class="preview-box"><span class="muted tiny">Reference edits</span><b>${refEdits}</b></div><div class="preview-box"><span class="muted tiny">Text files modified</span><b>${tx.refsByFile.size}</b></div>`;
+  const verifyLine=simpleMode()?'Originals are deleted only after the generated WebP files pass dimension verification. References are not checked in this mode.':'Originals are deleted only after WebP dimensions and scanned references verify successfully.';
+  els.transactionBody.innerHTML=`${warnings}<div class="preview-grid">
+    <div class="preview-box"><span class="muted tiny">Optimize assets</span><b>${tx.converting.length}</b></div>
+    <div class="preview-box"><span class="muted tiny">Overwrite WebP</span><b>${tx.inPlace.length}</b></div>
+    <div class="preview-box"><span class="muted tiny">Remove originals</span><b>${tx.removing.length}</b></div>
+    <div class="preview-box"><span class="muted tiny">Retain originals</span><b>${tx.retained.length}</b></div>
+    ${refBoxes}
+    <div class="preview-box"><span class="muted tiny">Backup estimate</span><b>${human(backupBytes)}</b></div>
+  </div><ul class="risk-list"><li>New output paths are rechecked immediately before writing; existing WebP may overwrite only its own exact path.</li><li>${verifyLine}</li><li>A timestamped backup is created before any project mutation.</li></ul>`;
+  state.pendingTx=tx;els.commitTransactionBtn.textContent=`Create Backup & Optimize ${tx.converting.length}`;els.transactionDialog.showModal();
+}
+function crc32(bytes){let c=0xffffffff;for(const b of bytes){c^=b;for(let k=0;k<8;k++)c=(c>>>1)^((c&1)?0xedb88320:0);}return(c^0xffffffff)>>>0;}
+function dosStamp(d=new Date()){let year=Math.max(1980,d.getFullYear());return{time:(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1),date:((year-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate()};}
+function u16(v){const a=new Uint8Array(2);new DataView(a.buffer).setUint16(0,v,true);return a;}function u32(v){const a=new Uint8Array(4);new DataView(a.buffer).setUint32(0,v>>>0,true);return a;}
+async function makeZip(entries){const enc=new TextEncoder(),locals=[],centrals=[];let offset=0;const stamp=dosStamp();for(const entry of entries){const name=enc.encode(slash(entry.name).replace(/^\/+/,'')),data=new Uint8Array(await entry.blob.arrayBuffer()),crc=crc32(data),size=data.length;const local=[u32(0x04034b50),u16(20),u16(0x0800),u16(0),u16(stamp.time),u16(stamp.date),u32(crc),u32(size),u32(size),u16(name.length),u16(0),name,data];locals.push(...local);const central=[u32(0x02014b50),u16(20),u16(20),u16(0x0800),u16(0),u16(stamp.time),u16(stamp.date),u32(crc),u32(size),u32(size),u16(name.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset),name];centrals.push(...central);offset+=30+name.length+size;}const centralSize=centrals.reduce((n,p)=>n+p.length,0),end=[u32(0x06054b50),u16(0),u16(0),u16(entries.length),u16(entries.length),u32(centralSize),u32(offset),u16(0)];return new Blob([...locals,...centrals,...end],{type:'application/zip'});}
+function downloadBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
+async function exportDroppedSelected(){const converting=state.images.filter(a=>a.convertible&&a.selected&&analysisCurrent(a)&&a.analysis?.action==='convert');if(!converting.length){alert('Nothing needs conversion. Selected assets were kept or failed analysis.');return;}state.cancel=false;setBusy(true,'Encoding dropped files…');try{const outputs=[];let i=0;for(const a of converting){checkCancel();setProgress(i,converting.length,`Encoding ${i+1}/${converting.length}: ${a.path}`);const file=await getAssetFile(a),encoded=await encodeWebP(file,a.analysis.quality);outputs.push({name:a.outputPath,blob:encoded.blob});i++;if(i%3===0)await new Promise(r=>setTimeout(r,0));}if(outputs.length===1)downloadBlob(outputs[0].blob,basename(outputs[0].name));else{setProgress(0,1,'Packaging WebP ZIP…');const zip=await makeZip(outputs);downloadBlob(zip,`webp-optimized-${timestampName()}.zip`);}log(`Exported ${outputs.length} optimized WebP file(s) from dropped input. Originals were not modified.`);alert(`Export complete.\n\nWebP exported: ${outputs.length}\nOriginal dropped files: untouched`);}catch(err){if(err?.name==='AbortError')log('Export cancelled.','warn');else{log(`Export failed: ${err.message||err}`,'error');alert(`Export failed:\n${err.message||err}`);}}finally{state.cancel=false;setProgress(0,1,'Idle');setBusy(false);}}
+async function optimizeSelected(){
+  const selected=state.images.filter(a=>a.convertible&&a.selected);if(!selected.length)return;
+  if(selected.some(a=>!analysisCurrent(a))){const ok=await analyzeSelected();if(!ok)return;}
+  if(simpleMode()&&state.sourceKind==='drop-files'){await exportDroppedSelected();return;}
+  const tx=collectTransaction();if(!tx.converting.length){alert('Nothing needs conversion. Selected assets were kept or failed analysis.');return;}showTransactionPreview(tx);
+}
+async function commitTransaction(tx){
+  if(!tx?.converting?.length)return;state.cancel=false;setBusy(true,'Preparing transaction…');let backupInfo=null;const newPaths=[];
+  try{
+    log(`Starting optimize transaction for ${tx.converting.length} asset(s): ${tx.inPlace.length} WebP in-place, ${tx.removing.length} remove original, ${tx.retained.length} retain original.`);
+    await validateTransactionFreshness(tx);checkCancel();
+    backupInfo=await createBackup(tx);state.lastBackupPath=backupInfo.path;els.lastBackup.textContent=`Last backup: ${backupInfo.path}`;log(`Backup created: ${backupInfo.path}`);
+    state.cancel=false;els.cancelBtn.disabled=true;
+    let i=0;
+    for(const a of tx.converting){setProgress(i,tx.converting.length,`Encoding + writing ${a.outputPath}`);if(a.outputPath!==a.path)await assertOutputPathFree(a.outputPath);const source=await getAssetFile(a);const encoded=await encodeWebP(source,a.analysis.quality);if(encoded.width!==a.analysis.width||encoded.height!==a.analysis.height)throw new Error(`Source dimensions changed during commit: ${a.path}`);await writeBlobToPath(state.root,a.outputPath,encoded.blob);if(a.outputPath!==a.path)newPaths.push(a.outputPath);i++;if(i%3===0)await new Promise(r=>setTimeout(r,0));}
+    log(`Wrote ${tx.converting.length} WebP file(s): ${tx.inPlace.length} replaced in place, ${newPaths.length} new output(s).`);
+    if(!simpleMode()&&els.rewriteRefs.checked){const modified=await rewriteReferenceFiles(tx);log(`Rewrote ${[...tx.refsByFile.values()].reduce((n,a)=>n+a.length,0)} reference(s) in ${modified.length} file(s).`);}else if(simpleMode())log('Simple Mode: reference scan/rewrite intentionally skipped.');else log('Reference rewriting disabled; all originals are retained.','warn');
+    setProgress(0,tx.converting.length,'Verifying WebP outputs…');i=0;for(const a of tx.converting){await verifyWebPPath(a.outputPath,a.analysis.width,a.analysis.height);i++;setProgress(i,tx.converting.length,`Verified ${i}/${tx.converting.length} WebP`);}
+    await verifyReferences(tx);
+    i=0;for(const a of tx.removing){setProgress(i,tx.removing.length||1,`Removing original ${a.path}`);await removePath(state.root,a.path);i++;}
+    log(`Optimize committed: ${tx.converting.length} asset(s) optimized, ${tx.inPlace.length} WebP replaced in place, ${tx.removing.length} original(s) removed, ${tx.retained.length} retained.`);
+    alert(`Optimize complete.
+
+Assets optimized: ${tx.converting.length}
+WebP overwritten in place: ${tx.inPlace.length}
+Originals removed: ${tx.removing.length}
+Originals retained: ${tx.retained.length}
+Backup: ${backupInfo.path}`);await scanProject();
+  }catch(err){log(`Transaction failed: ${err.message||err}`,'error');if(backupInfo)await rollbackTransaction(backupInfo,tx,newPaths);alert(`Optimize failed.
+
+${err.message||err}
+
+${backupInfo?'The tool attempted an automatic rollback from '+backupInfo.path+'.':'No project files were modified before failure.'}`);}finally{state.cancel=false;state.pendingTx=null;setProgress(0,1,'Idle');setBusy(false);}
+}
+
+function openRefs(path){const a=state.imageMap.get(path);if(!a)return;const exact=a.refs.filter(r=>!r.soft),soft=a.refs.filter(r=>r.soft),dyn=a.dynamicRefs||[],amb=a.ambiguousRefs||[];els.refsTitle.textContent=a.path;els.refsSubtitle.textContent=`${exact.length} exact + ${soft.length} soft static ref(s), ${a.uncertainRefs.length} non-rewritable, ${dyn.length} matching dynamic, ${amb.length} matching ambiguous`;let html='';
+  if(exact.length){html+='<div class="title" style="margin-bottom:6px">Exact static — path-resolved and rewritten</div>';for(const r of exact)html+=`<div class="ref-item"><div class="ref-file">${escapeHtml(r.filePath)}</div><div class="ref-raw">${escapeHtml(r.raw)} → ${escapeHtml(buildNewRawRef(r,a.outputPath))}</div></div>`;}
+  if(soft.length){html+='<div class="title" style="margin:16px 0 6px;color:#bcd6ff">Soft static — unique basename; current path is preserved and output filename is substituted</div>';for(const r of soft)html+=`<div class="ref-item"><div class="ref-file">${escapeHtml(r.filePath)}</div><div class="ref-raw">${escapeHtml(r.raw)} → ${escapeHtml(buildNewRawRef(r,a.outputPath))}<br>${escapeHtml(r.reason||'Unique basename match')}</div></div>`;}
+  if(a.uncertainRefs.length){html+='<div class="title" style="margin:16px 0 6px;color:var(--warn)">Non-rewritable — source is kept unless force-delete is enabled</div>';for(const r of a.uncertainRefs)html+=`<div class="ref-item"><div class="ref-file">${escapeHtml(r.filePath)}</div><div class="ref-raw">${escapeHtml(r.raw)}<br>${escapeHtml(r.reason)}</div></div>`;}
+  if(dyn.length){html+='<div class="title" style="margin:16px 0 6px;color:var(--warn)">Dynamic paths that can match this asset</div>';for(const r of dyn)html+=`<div class="ref-item"><div class="ref-file">${escapeHtml(r.filePath)}</div><div class="ref-raw">${escapeHtml(r.raw)}</div></div>`;}
+  if(amb.length){html+='<div class="title" style="margin:16px 0 6px;color:var(--warn)">Ambiguous references that can match this asset</div>';for(const r of amb)html+=`<div class="ref-item"><div class="ref-file">${escapeHtml(r.filePath)}</div><div class="ref-raw">${escapeHtml(r.raw)}<br>${escapeHtml(r.reason||'Ambiguous match')}</div></div>`;}
+  if(!html)html='<div class="muted">No static references were detected. This may be an unused asset or a dynamically generated path.</div>';els.refsBody.innerHTML=html;els.refsDialog.showModal();}
+
+els.referenceModeBtn.addEventListener('click',()=>setMode('reference'));els.simpleModeBtn.addEventListener('click',()=>setMode('simple'));
+['dragenter','dragover'].forEach(type=>els.dropZone.addEventListener(type,e=>{e.preventDefault();if(simpleMode()&&!state.busy)els.dropZone.classList.add('dragover');}));['dragleave','dragend'].forEach(type=>els.dropZone.addEventListener(type,()=>els.dropZone.classList.remove('dragover')));els.dropZone.addEventListener('drop',handleDrop);
+els.chooseFolderBtn.addEventListener('click',chooseFolder);els.rescanBtn.addEventListener('click',scanProject);els.cancelBtn.addEventListener('click',()=>{state.cancel=true;els.cancelBtn.disabled=true;els.progressText.textContent='Cancelling…';});
+els.preset.addEventListener('change',()=>{if(els.preset.value!=='custom'){const q=Math.round(+els.preset.value*100);els.quality.value=els.qualityNumber.value=q;}refreshAnalysisViews();saveConfig();});
+function qualityChanged(v){const q=Math.max(50,Math.min(100,+v||82));els.quality.value=els.qualityNumber.value=q;els.preset.value=['90','82','72'].includes(String(q))?({'90':'0.90','82':'0.82','72':'0.72'}[q]):'custom';refreshAnalysisViews();saveConfig();}
+els.quality.addEventListener('input',e=>qualityChanged(e.target.value));els.qualityNumber.addEventListener('change',e=>qualityChanged(e.target.value));
+[els.keepLarger,els.keepBelowThreshold,els.minSaving].forEach(el=>el.addEventListener('change',()=>{refreshAnalysisViews();saveConfig();}));
+[els.rewriteRefs,els.forceRiskyRemove,els.simpleRemoveOriginal].forEach(el=>el.addEventListener('change',()=>{saveConfig();renderTable();updateSummary();}));
+els.searchInput.addEventListener('input',renderTable);els.statusFilter.addEventListener('change',renderTable);
+function visibleConvertible(){return state.images.filter(a=>a.convertible&&filterAsset(a));}
+els.selectVisibleBtn.addEventListener('click',()=>{visibleConvertible().forEach(a=>a.selected=true);renderTable();updateSummary();refreshControls();});
+els.selectAllBtn.addEventListener('click',()=>{state.images.forEach(a=>{if(a.convertible)a.selected=true;});renderTable();updateSummary();refreshControls();});
+els.selectNoneBtn.addEventListener('click',()=>{state.images.forEach(a=>{if(a.convertible)a.selected=false;});renderTable();updateSummary();refreshControls();});
+els.headerCheck.addEventListener('change',()=>{visibleConvertible().forEach(a=>a.selected=els.headerCheck.checked);renderTable();updateSummary();refreshControls();});
+els.assetTbody.addEventListener('change',e=>{const tr=e.target.closest('tr[data-path]');if(!tr)return;const a=state.imageMap.get(tr.dataset.path);if(!a)return;if(e.target.classList.contains('asset-check')){a.selected=e.target.checked;renderTable();updateSummary();refreshControls();}else if(e.target.classList.contains('quality-override')){const raw=e.target.value.trim();a.qualityOverride=raw===''?null:Math.max(50,Math.min(100,+raw||82));renderTable();updateSummary();refreshControls();}});
+els.assetTbody.addEventListener('click',e=>{const btn=e.target.closest('[data-ref-path]');if(btn)openRefs(btn.dataset.refPath);});
+els.analyzeBtn.addEventListener('click',analyzeSelected);els.optimizeBtn.addEventListener('click',optimizeSelected);
+els.closeRefsBtn.addEventListener('click',()=>els.refsDialog.close());els.closeRefsBtn2.addEventListener('click',()=>els.refsDialog.close());
+els.viewRisksBtn.addEventListener('click',()=>{let html='';if(state.scanGaps.length){html+='<div class="title" style="margin-bottom:6px">Unscanned / partially scanned files</div>';for(const g of state.scanGaps)html+=`<div class="ref-item"><div class="ref-file">${escapeHtml(g.path)}</div><div class="ref-raw">${escapeHtml(g.reason)}${g.size?` · ${human(g.size)}`:''}</div></div>`;}if(state.dynamicRefs.length){html+='<div class="title" style="margin:16px 0 6px">Dynamic image references</div>';for(const r of state.dynamicRefs.slice(0,300))html+=`<div class="ref-item"><div class="ref-file">${escapeHtml(r.filePath)}</div><div class="ref-raw">${escapeHtml(r.raw)}</div></div>`;if(state.dynamicRefs.length>300)html+=`<div class="muted tiny">Showing first 300 of ${state.dynamicRefs.length}.</div>`;}if(state.ambiguousRefs.length){html+='<div class="title" style="margin:16px 0 6px">Ambiguous static references</div>';for(const r of state.ambiguousRefs.slice(0,300))html+=`<div class="ref-item"><div class="ref-file">${escapeHtml(r.filePath)}</div><div class="ref-raw">${escapeHtml(r.raw)}<br>${escapeHtml(r.reason)}</div></div>`;}els.risksBody.innerHTML=html||'<div class="ok-banner">No scan risks detected.</div>';els.risksDialog.showModal();});
+els.closeRisksBtn.addEventListener('click',()=>els.risksDialog.close());els.closeRisksBtn2.addEventListener('click',()=>els.risksDialog.close());
+els.closeTransactionBtn.addEventListener('click',()=>{state.pendingTx=null;els.transactionDialog.close();});els.cancelTransactionBtn.addEventListener('click',()=>{state.pendingTx=null;els.transactionDialog.close();});
+els.commitTransactionBtn.addEventListener('click',()=>{const tx=state.pendingTx;state.pendingTx=null;els.transactionDialog.close();commitTransaction(tx);});
+els.restoreBackupBtn.addEventListener('click',restoreSelectedBackup);els.deleteBackupBtn.addEventListener('click',deleteSelectedBackup);els.backupSelect.addEventListener('change',renderBackupControls);
+
+loadConfig();applyModeUi();showCompatibility();renderAll();
+})();
+</script>
+</body>
+</html>

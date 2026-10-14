@@ -1,54 +1,234 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Auto Crop Sprites</title>
-  <style>
-    :root { color-scheme: dark; --bg:#10131b; --panel:#191e29; --line:#30394a; --text:#edf2fb; --muted:#98a5ba; --accent:#6ee7b7; --danger:#fb7185; }
-    * { box-sizing:border-box; } body { margin:0; min-width:320px; background:radial-gradient(circle at 18% 0,#1d2b42 0,transparent 35%),var(--bg); color:var(--text); font:14px/1.4 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-    button,input { font:inherit; } button { border:0; border-radius:8px; cursor:pointer; color:var(--text); font-weight:700; padding:10px 13px; background:#293246; transition:.15s transform,.15s background; } button:hover:not(:disabled) { background:#37445d; transform:translateY(-1px); } button:disabled { opacity:.45; cursor:not-allowed; } .primary { background:var(--accent); color:#06261b; } .primary:hover:not(:disabled) { background:#a7f3d0; } .danger { color:#fecdd3; background:#4a202b; } .danger:hover:not(:disabled) { background:#632735; }
-    .app { max-width:1500px; min-height:100vh; margin:auto; padding:24px; } header { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:22px; } h1 { margin:0; font-size:24px; letter-spacing:-.03em; } .subtitle { margin:3px 0 0; color:var(--muted); } .workspace { display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:18px; } .card { border:1px solid var(--line); background:rgba(25,30,41,.9); box-shadow:0 14px 50px #0003; border-radius:13px; }
-    .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px; border-bottom:1px solid var(--line); } .file-label { background:#293246; border-radius:8px; padding:10px 13px; cursor:pointer; font-weight:700; } .file-label:hover { background:#37445d; } input[type=file] { display:none; } .tool-separator { width:1px; height:28px; background:var(--line); margin:0 2px; }
-    .canvas-area { min-height:580px; display:grid; place-items:center; padding:22px; overflow:auto; background-color:#111620; background-image:linear-gradient(45deg,#172131 25%,transparent 25%),linear-gradient(-45deg,#172131 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#172131 75%),linear-gradient(-45deg,transparent 75%,#172131 75%); background-size:24px 24px; background-position:0 0,0 12px,12px -12px,-12px 0; border-radius:0 0 13px 13px; } #canvasWrap { position:relative; display:none; box-shadow:0 8px 35px #0008; line-height:0; } canvas { display:block; max-width:none; touch-action:none; cursor:crosshair; } .empty { text-align:center; color:var(--muted); padding:50px 20px; } .empty strong { display:block; color:var(--text); font-size:17px; margin-bottom:5px; }
-    .sidebar { overflow:hidden; } .side-section { padding:16px; border-bottom:1px solid var(--line); } .side-section:last-child { border-bottom:0; } h2 { margin:0 0 12px; font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:#c6d0df; } .control { display:grid; grid-template-columns:1fr 72px; align-items:center; gap:10px; margin:9px 0; color:var(--muted); } input[type=number] { width:100%; color:var(--text); background:#111620; border:1px solid var(--line); border-radius:6px; padding:6px 7px; } input[type=range] { width:100%; accent-color:var(--accent); } .range-control { grid-template-columns:1fr 52px; } .range-control input[type=range] { grid-column:1; } .range-control output { grid-column:2; grid-row:1; text-align:right; color:var(--text); } .stats { color:var(--muted); font-size:12px; } .stats b { color:var(--accent); }
-    #spriteList { max-height:300px; overflow:auto; padding:4px 0; } .sprite { display:grid; grid-template-columns:42px 1fr auto; gap:9px; align-items:center; padding:7px; border-radius:8px; cursor:pointer; } .sprite:hover { background:#222a39; } .sprite.selected { background:#164e43; outline:1px solid #34d399; } .sprite-preview { width:42px; height:42px; object-fit:contain; background:repeating-conic-gradient(#192232 0 25%,#101620 0 50%) 50%/10px 10px; border:1px solid #394255; border-radius:4px; } .sprite small { display:block; color:var(--muted); }.field-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; } .field-grid label { color:var(--muted); font-size:12px; } .field-grid input { display:block; margin-top:4px; }.hint { margin:10px 0 0; font-size:12px; color:var(--muted); } kbd { padding:1px 4px; border:1px solid #566176; border-radius:3px; color:#dce5f3; font-size:11px; }
-    @media (max-width:900px) { .workspace { grid-template-columns:1fr; } .canvas-area { min-height:420px; } .sidebar { order:-1; } #spriteList { max-height:180px; } } @media (max-width:560px) { .app { padding:12px; } header { display:block; } .subtitle { margin-bottom:14px; } .tool-separator { display:none; } .canvas-area { padding:10px; } }
-  </style>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#101514">
+	<title>LNH Image Tools</title>
+	<style>
+		:root {
+			color-scheme: dark;
+			--bg: #101514;
+			--surface: #171e1c;
+			--surface-hover: #1d2824;
+			--line: #2c3934;
+			--text: #edf4ef;
+			--muted: #9aa9a1;
+			--accent: #a6e3c0;
+		}
+
+		* { box-sizing: border-box; }
+
+		body {
+			min-width: 320px;
+			min-height: 100vh;
+			margin: 0;
+			color: var(--text);
+			background:
+				linear-gradient(rgba(255, 255, 255, .018) 1px, transparent 1px),
+				linear-gradient(90deg, rgba(255, 255, 255, .018) 1px, transparent 1px),
+				radial-gradient(ellipse at 12% 0%, #20352c 0, transparent 38%),
+				var(--bg);
+			background-size: 36px 36px, 36px 36px, auto, auto;
+			font: 15px/1.5 "Aptos", "Segoe UI", sans-serif;
+		}
+
+		main {
+			width: min(1120px, calc(100% - 48px));
+			margin: 0 auto;
+			padding: 72px 0 56px;
+		}
+
+		.topline {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			color: var(--accent);
+			font-size: 12px;
+			font-weight: 700;
+			text-transform: uppercase;
+		}
+
+		.topline::before {
+			width: 8px;
+			height: 8px;
+			border-radius: 2px;
+			background: var(--accent);
+			content: "";
+		}
+
+		h1 {
+			margin: 20px 0 6px;
+			font-size: 36px;
+			line-height: 1.15;
+		}
+
+		.intro {
+			margin: 0;
+			color: var(--muted);
+		}
+
+		.intro .vi { display: block; margin-top: 2px; }
+
+		.tools {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 12px;
+			margin-top: 38px;
+		}
+
+		.tool {
+			display: flex;
+			min-height: 204px;
+			flex-direction: column;
+			padding: 20px;
+			border: 1px solid var(--line);
+			border-radius: 6px;
+			background: rgba(23, 30, 28, .92);
+			color: inherit;
+			text-decoration: none;
+			animation: arrive .45s both;
+			transition: background .16s ease, border-color .16s ease, transform .16s ease;
+		}
+
+		.tool:nth-child(2) { animation-delay: .04s; }
+		.tool:nth-child(3) { animation-delay: .08s; }
+		.tool:nth-child(4) { animation-delay: .12s; }
+		.tool:nth-child(5) { animation-delay: .16s; }
+		.tool:nth-child(6) { animation-delay: .20s; }
+
+		.tool:hover, .tool:focus-visible {
+			border-color: #557464;
+			background: var(--surface-hover);
+			transform: translateY(-2px);
+		}
+
+		.tool:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+		.tool-index {
+			color: #7c9a89;
+			font-size: 12px;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.tool h2 {
+			margin: 18px 0 2px;
+			font-size: 18px;
+			line-height: 1.3;
+		}
+
+		.tool .vi { color: #c1cec6; }
+
+		.tool p {
+			margin: 11px 0 18px;
+			color: var(--muted);
+			font-size: 13px;
+		}
+
+		.tool p .vi { display: block; }
+
+		.open {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 8px;
+			margin-top: auto;
+			padding-top: 12px;
+			border-top: 1px solid var(--line);
+			color: var(--accent);
+			font-size: 13px;
+			font-weight: 700;
+		}
+
+		.arrow { font-size: 18px; line-height: 1; }
+
+		footer {
+			margin-top: 26px;
+			color: #78877f;
+			font-size: 12px;
+		}
+
+		@keyframes arrive {
+			from { opacity: 0; transform: translateY(8px); }
+			to { opacity: 1; transform: translateY(0); }
+		}
+
+		@media (max-width: 800px) {
+			main { padding-top: 48px; }
+			.tools { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+		}
+
+		@media (max-width: 520px) {
+			main { width: min(100% - 32px, 420px); padding-top: 34px; }
+			h1 { font-size: 30px; }
+			.tools { grid-template-columns: 1fr; gap: 10px; margin-top: 28px; }
+			.tool { min-height: 184px; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			*, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+		}
+	</style>
 </head>
 <body>
-  <main class="app">
-    <header><div><h1>Auto Crop Sprites</h1><p class="subtitle">Detect sprites from transparency, refine the boxes, then export each crop as a PNG.</p></div><div class="stats" id="imageInfo">No image loaded</div></header>
-    <div class="workspace"><section class="card"><div class="toolbar"><label class="file-label">Upload image <input id="fileInput" type="file" accept="image/*"></label><button id="autoBtn" class="primary" disabled>Auto detect</button><button id="addBtn" disabled>Add rectangle</button><button id="deleteBtn" class="danger" disabled>Delete selected</button><span class="tool-separator"></span><button id="exportSelectedBtn" disabled>Export selected</button><button id="exportAllBtn" class="primary" disabled>Export all PNGs</button></div><div class="canvas-area" id="canvasArea"><div class="empty" id="emptyState"><strong>Drop in a sprite sheet</strong>Upload a PNG or any image with transparent areas to start cropping.</div><div id="canvasWrap"><canvas id="editorCanvas"></canvas></div></div></section>
-      <aside class="card sidebar"><section class="side-section"><h2>Auto-detection</h2><label class="control range-control">Alpha threshold <input id="alphaThreshold" type="range" min="1" max="255" value="10"><output id="alphaValue">10</output></label><label class="control">Padding (px) <input id="padding" type="number" min="0" max="1000" value="0"></label><label class="control">Min width (px) <input id="minWidth" type="number" min="1" value="2"></label><label class="control">Min height (px) <input id="minHeight" type="number" min="1" value="2"></label><p class="hint">Connected non-transparent pixels become a sprite. Use a higher threshold to ignore faint edge pixels.</p></section><section class="side-section"><h2>Sprites <span class="stats" id="spriteCount">(0)</span></h2><div id="spriteList"><p class="stats">No crop rectangles yet.</p></div></section><section class="side-section" id="selectedPanel" hidden><h2>Selected rectangle</h2><div class="field-grid"><label>X <input id="rectX" type="number" min="0"></label><label>Y <input id="rectY" type="number" min="0"></label><label>Width <input id="rectW" type="number" min="1"></label><label>Height <input id="rectH" type="number" min="1"></label></div><p class="hint">Drag inside a box to move it. Drag a square handle to resize. Drag on empty canvas to create a box. Press <kbd>Delete</kbd> to remove.</p></section></aside></div>
-  </main>
-  <script>
-    (() => {
-      const $ = id => document.getElementById(id);
-      const canvas = $('editorCanvas'), ctx = canvas.getContext('2d', { willReadFrequently:true });
-      const fileInput = $('fileInput'), autoBtn = $('autoBtn'), addBtn = $('addBtn'), deleteBtn = $('deleteBtn'), exportSelectedBtn = $('exportSelectedBtn'), exportAllBtn = $('exportAllBtn');
-      const controls = { threshold:$('alphaThreshold'), padding:$('padding'), minWidth:$('minWidth'), minHeight:$('minHeight') }, fields = { x:$('rectX'), y:$('rectY'), w:$('rectW'), h:$('rectH') };
-      let image = null, imageData = null, rects = [], selected = -1, drag = null, fileStem = 'sprite'; const HANDLE = 7;
-      const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
-      const normaliseRect=r=>{ const x=clamp(Math.round(r.x),0,canvas.width-1), y=clamp(Math.round(r.y),0,canvas.height-1); return {x,y,w:clamp(Math.round(r.w),1,canvas.width-x),h:clamp(Math.round(r.h),1,canvas.height-y)}; };
-      function updateButtons(){ const loaded=Boolean(image),hasSelection=selected>=0; autoBtn.disabled=!loaded;addBtn.disabled=!loaded;deleteBtn.disabled=!hasSelection;exportSelectedBtn.disabled=!hasSelection;exportAllBtn.disabled=!rects.length; }
-      function point(event){const b=canvas.getBoundingClientRect();return{x:(event.clientX-b.left)*canvas.width/b.width,y:(event.clientY-b.top)*canvas.height/b.height};} const selectedRect=()=>rects[selected];
-      function handlePoints(r){return[{x:r.x,y:r.y,n:'nw'},{x:r.x+r.w/2,y:r.y,n:'n'},{x:r.x+r.w,y:r.y,n:'ne'},{x:r.x+r.w,y:r.y+r.h/2,n:'e'},{x:r.x+r.w,y:r.y+r.h,n:'se'},{x:r.x+r.w/2,y:r.y+r.h,n:'s'},{x:r.x,y:r.y+r.h,n:'sw'},{x:r.x,y:r.y+r.h/2,n:'w'}];}
-      function draw(){if(!image)return;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0);rects.forEach((r,i)=>{const active=i===selected;ctx.save();ctx.fillStyle=active?'rgba(110,231,183,.14)':'rgba(96,165,250,.10)';ctx.strokeStyle=active?'#6ee7b7':'#60a5fa';ctx.lineWidth=Math.max(1,2*canvas.width/canvas.getBoundingClientRect().width);ctx.fillRect(r.x,r.y,r.w,r.h);ctx.strokeRect(r.x,r.y,r.w,r.h);ctx.font=`${Math.max(12,14*canvas.width/canvas.getBoundingClientRect().width)}px sans-serif`;ctx.fillStyle=active?'#6ee7b7':'#bfdbfe';ctx.fillText(`${i+1}`,r.x+4,r.y+16);if(active){ctx.fillStyle='#6ee7b7';handlePoints(r).forEach(p=>ctx.fillRect(p.x-HANDLE/2,p.y-HANDLE/2,HANDLE,HANDLE));}ctx.restore();});}
-      function cropPreview(r){const c=document.createElement('canvas');c.width=Math.max(1,r.w);c.height=Math.max(1,r.h);c.getContext('2d').drawImage(image,r.x,r.y,r.w,r.h,0,0,r.w,r.h);return c.toDataURL('image/png');}
-      function renderList(){const list=$('spriteList');list.replaceChildren();if(!rects.length){const p=document.createElement('p');p.className='stats';p.textContent='No crop rectangles yet.';list.append(p);return;}rects.forEach((r,i)=>{const row=document.createElement('div');row.className=`sprite ${i===selected?'selected':''}`;row.onclick=()=>{selected=i;renderPanel();};const preview=document.createElement('img');preview.className='sprite-preview';preview.src=cropPreview(r);preview.alt=`Sprite ${i+1}`;const info=document.createElement('div');info.innerHTML=`<b>Sprite ${i+1}</b><small>${r.x}, ${r.y} · ${r.w} × ${r.h}</small>`;const remove=document.createElement('button');remove.className='danger';remove.textContent='×';remove.title='Delete sprite';remove.onclick=e=>{e.stopPropagation();removeRect(i);};row.append(preview,info,remove);list.append(row);});}
-      function renderPanel(){const r=selectedRect();$('selectedPanel').hidden=!r;if(r){fields.x.value=r.x;fields.y.value=r.y;fields.w.value=r.w;fields.h.value=r.h;}$('spriteCount').textContent=`(${rects.length})`;updateButtons();renderList();draw();}
-      function selectAt(p){for(let i=rects.length-1;i>=0;i--){const r=rects[i];if(p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h)return i;}return-1;} function hitHandle(r,p){return handlePoints(r).find(h=>Math.abs(h.x-p.x)<=HANDLE&&Math.abs(h.y-p.y)<=HANDLE)?.n;} function removeRect(index){rects.splice(index,1);selected=rects.length?clamp(index,0,rects.length-1):-1;renderPanel();}
-      function autoDetect(){if(!imageData)return;const {data,width,height}=imageData,threshold=+controls.threshold.value,minW=Math.max(1,+controls.minWidth.value||1),minH=Math.max(1,+controls.minHeight.value||1),padding=Math.max(0,+controls.padding.value||0),visited=new Uint8Array(width*height),detected=[],opaque=i=>data[i*4+3]>=threshold;for(let start=0;start<width*height;start++){if(visited[start]||!opaque(start))continue;let minX=width,minY=height,maxX=0,maxY=0;const stack=[start];visited[start]=1;while(stack.length){const index=stack.pop(),x=index%width,y=(index-x)/width;minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);for(let yy=Math.max(0,y-1);yy<=Math.min(height-1,y+1);yy++)for(let xx=Math.max(0,x-1);xx<=Math.min(width-1,x+1);xx++){const next=yy*width+xx;if(!visited[next]&&opaque(next)){visited[next]=1;stack.push(next);}}}const w=maxX-minX+1,h=maxY-minY+1;if(w>=minW&&h>=minH)detected.push(normaliseRect({x:minX-padding,y:minY-padding,w:w+padding*2,h:h+padding*2}));}rects=detected.sort((a,b)=>a.y-b.y||a.x-b.x);selected=rects.length?0:-1;renderPanel();}
-      function addRectangle(){const size=Math.min(80,Math.max(20,Math.round(Math.min(canvas.width,canvas.height)/5)));rects.push(normaliseRect({x:(canvas.width-size)/2,y:(canvas.height-size)/2,w:size,h:size}));selected=rects.length-1;renderPanel();} function updateFieldRect(){if(selected<0)return;rects[selected]=normaliseRect({x:+fields.x.value||0,y:+fields.y.value||0,w:+fields.w.value||1,h:+fields.h.value||1});renderPanel();}
-      function exportRect(r,index){const out=document.createElement('canvas');out.width=r.w;out.height=r.h;out.getContext('2d').drawImage(image,r.x,r.y,r.w,r.h,0,0,r.w,r.h);const link=document.createElement('a');link.download=`${fileStem}_${String(index+1).padStart(3,'0')}.png`;link.href=out.toDataURL('image/png');link.click();}
-      function fitCanvas(){const maxW=Math.max(280,$('canvasArea').clientWidth-44),scale=Math.min(1,maxW/canvas.width,720/canvas.height);canvas.style.width=`${Math.round(canvas.width*scale)}px`;canvas.style.height=`${Math.round(canvas.height*scale)}px`;}
-      fileInput.onchange=e=>{const file=e.target.files[0];if(!file)return;fileStem=(file.name.replace(/\.[^.]+$/,'')||'sprite').replace(/[^a-z0-9_-]+/gi,'_');const reader=new FileReader();reader.onload=()=>{image=new Image();image.onload=()=>{canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;fitCanvas();ctx.drawImage(image,0,0);imageData=ctx.getImageData(0,0,canvas.width,canvas.height);rects=[];selected=-1;$('canvasWrap').style.display='block';$('emptyState').hidden=true;$('imageInfo').innerHTML=`<b>${canvas.width} × ${canvas.height}</b> px`;renderPanel();};image.src=reader.result;};reader.readAsDataURL(file);};
-      controls.threshold.oninput=()=>$('alphaValue').textContent=controls.threshold.value;autoBtn.onclick=autoDetect;addBtn.onclick=addRectangle;deleteBtn.onclick=()=>selected>=0&&removeRect(selected);exportSelectedBtn.onclick=()=>selected>=0&&exportRect(selectedRect(),selected);exportAllBtn.onclick=()=>rects.forEach((r,i)=>setTimeout(()=>exportRect(r,i),i*120));Object.values(fields).forEach(f=>f.onchange=updateFieldRect);
-      canvas.addEventListener('pointerdown',e=>{if(!image)return;canvas.setPointerCapture(e.pointerId);const p=point(e),r=selectedRect(),handle=r&&hitHandle(r,p);if(handle)drag={type:'resize',handle,start:p,rect:{...r}};else{const hit=selectAt(p);if(hit>=0){selected=hit;drag={type:'move',start:p,rect:{...rects[hit]}};}else{rects.push({x:p.x,y:p.y,w:1,h:1});selected=rects.length-1;drag={type:'create',start:p};}}renderPanel();});
-      canvas.addEventListener('pointermove',e=>{if(!drag)return;const p=point(e),dx=p.x-drag.start.x,dy=p.y-drag.start.y;let r;if(drag.type==='move')r={...drag.rect,x:clamp(drag.rect.x+dx,0,canvas.width-drag.rect.w),y:clamp(drag.rect.y+dy,0,canvas.height-drag.rect.h)};else if(drag.type==='create')r={x:Math.min(drag.start.x,p.x),y:Math.min(drag.start.y,p.y),w:Math.abs(dx),h:Math.abs(dy)};else{const s=drag.rect,h=drag.handle;let left=s.x,top=s.y,right=s.x+s.w,bottom=s.y+s.h;if(h.includes('w'))left=clamp(p.x,0,right-1);if(h.includes('e'))right=clamp(p.x,left+1,canvas.width);if(h.includes('n'))top=clamp(p.y,0,bottom-1);if(h.includes('s'))bottom=clamp(p.y,top+1,canvas.height);r={x:left,y:top,w:right-left,h:bottom-top};}rects[selected]=normaliseRect(r);renderPanel();});canvas.addEventListener('pointerup',()=>drag=null);canvas.addEventListener('pointercancel',()=>drag=null);
-      window.addEventListener('keydown',e=>{if((e.key==='Delete'||e.key==='Backspace')&&selected>=0&&document.activeElement.tagName!=='INPUT'){e.preventDefault();removeRect(selected);}});window.addEventListener('resize',()=>{if(image){fitCanvas();draw();}});
-    })();
-  </script>
+	<main>
+		<header>
+			<div class="topline">LNH / Image Tools</div>
+			<h1>Image Tools <span lang="vi">/ Công cụ hình ảnh</span></h1>
+			<p class="intro">A small collection of tools for image and animation workflows.<span class="vi" lang="vi">Bộ công cụ gọn nhẹ cho quy trình xử lý hình ảnh và hoạt ảnh.</span></p>
+		</header>
+
+		<nav class="tools" aria-label="Image tools / Công cụ hình ảnh">
+			<a class="tool" href="cv-background-remover/index.html">
+				<span class="tool-index">01 / 06</span>
+				<h2>CV Background Remover</h2>
+				<span class="vi" lang="vi">Xóa nền ảnh CV</span>
+				<p>Remove baked-in backgrounds from images.<span class="vi" lang="vi">Xóa phần nền đã dính vào ảnh.</span></p>
+				<span class="open"><span>Open tool / Mở công cụ</span><span class="arrow" aria-hidden="true">↗</span></span>
+			</a>
+
+			<a class="tool" href="project-webp-optimizer/index.html">
+				<span class="tool-index">02 / 06</span>
+				<h2>Project WebP Optimizer</h2>
+				<span class="vi" lang="vi">Tối ưu WebP dự án</span>
+				<p>Optimize project images as WebP files.<span class="vi" lang="vi">Tối ưu ảnh dự án sang định dạng WebP.</span></p>
+				<span class="open"><span>Open tool / Mở công cụ</span><span class="arrow" aria-hidden="true">↗</span></span>
+			</a>
+
+			<a class="tool" href="spine-package-builder/index.html">
+				<span class="tool-index">03 / 06</span>
+				<h2>Spine Package Builder</h2>
+				<span class="vi" lang="vi">Đóng gói Spine</span>
+				<p>Browse and package Spine animation assets.<span class="vi" lang="vi">Duyệt và đóng gói tài nguyên hoạt ảnh Spine.</span></p>
+				<span class="open"><span>Open tool / Mở công cụ</span><span class="arrow" aria-hidden="true">↗</span></span>
+			</a>
+
+			<a class="tool" href="sprite-atlas-cleaner/index.html">
+				<span class="tool-index">04 / 06</span>
+				<h2>Sprite Atlas Cleaner</h2>
+				<span class="vi" lang="vi">Dọn dẹp Sprite Atlas</span>
+				<p>Inspect and clean up sprite atlases.<span class="vi" lang="vi">Kiểm tra và dọn dẹp các sprite atlas.</span></p>
+				<span class="open"><span>Open tool / Mở công cụ</span><span class="arrow" aria-hidden="true">↗</span></span>
+			</a>
+
+			<a class="tool" href="sprite-sheet-animation-tool/index.html">
+				<span class="tool-index">05 / 06</span>
+				<h2>Sprite Sheet Animation Tool</h2>
+				<span class="vi" lang="vi">Công cụ hoạt ảnh Sprite Sheet</span>
+				<p>Preview and work with sprite sheet animation.<span class="vi" lang="vi">Xem trước và xử lý hoạt ảnh từ sprite sheet.</span></p>
+				<span class="open"><span>Open tool / Mở công cụ</span><span class="arrow" aria-hidden="true">↗</span></span>
+			</a>
+
+			<a class="tool" href="video-to-spritesheet/index.html">
+				<span class="tool-index">06 / 06</span>
+				<h2>Video to Sprite Sheet</h2>
+				<span class="vi" lang="vi">Chuyển video thành Sprite Sheet</span>
+				<p>Turn video frames into a sprite sheet.<span class="vi" lang="vi">Chuyển các khung hình video thành sprite sheet.</span></p>
+				<span class="open"><span>Open tool / Mở công cụ</span><span class="arrow" aria-hidden="true">↗</span></span>
+			</a>
+		</nav>
+
+		<footer>6 tools / 6 công cụ</footer>
+	</main>
 </body>
 </html>
