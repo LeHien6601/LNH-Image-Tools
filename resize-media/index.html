@@ -77,9 +77,39 @@
 		.alignment button { min-height: 32px; padding: 0; color: var(--muted); }
 		.alignment button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 		.upload { grid-column: 1 / -1; }
+		.drop-zone {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 8px 14px;
+			padding: 14px;
+			border: 1px dashed #557464;
+			border-radius: 8px;
+			background: #141b18;
+			transition: border-color .15s, background .15s;
+		}
+		.drop-zone.drag-over { border-color: var(--accent); background: #1d2b24; }
+		.drop-zone input[type="file"] { flex: 1 1 260px; }
 		.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 		.status { min-height: 21px; margin-top: 10px; color: var(--muted); }
 		.status.error { color: var(--danger); }
+		.preview-frame {
+			display: grid;
+			min-height: 180px;
+			place-items: center;
+			overflow: auto;
+			padding: 12px;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background-color: #202722;
+			background-image: linear-gradient(45deg, #171e1c 25%, transparent 25%), linear-gradient(-45deg, #171e1c 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #171e1c 75%), linear-gradient(-45deg, transparent 75%, #171e1c 75%);
+			background-size: 24px 24px;
+			background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+		}
+		.preview-frame canvas { display: block; max-width: 100%; max-height: 60vh; }
+		.preview-frame canvas[hidden] { display: none; }
+		.preview-placeholder { color: var(--muted); text-align: center; }
+		.preview-status { min-height: 20px; margin: 9px 0 0; color: var(--muted); font-size: 12px; }
 		.queue-wrap { overflow-x: auto; }
 		table { width: 100%; border-collapse: collapse; min-width: 680px; }
 		th, td { padding: 9px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
@@ -88,6 +118,7 @@
 		.row-status { color: var(--muted); }
 		.row-status.error { color: var(--danger); }
 		.download { min-height: 32px; padding: 4px 9px; }
+		.preview-button { min-height: 32px; padding: 4px 9px; }
 		.empty { padding: 22px 8px; color: var(--muted); text-align: center; }
 		footer { color: var(--muted); font-size: 12px; }
 		@media (max-width: 760px) { .settings { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -119,16 +150,16 @@
 				</div>
 				<div class="field">
 					<label for="lockRatio">Tỷ lệ khung hình</label>
-					<label class="check"><input id="lockRatio" type="checkbox" checked> Khóa tỷ lệ theo từng tệp</label>
-					<p class="hint">Mặc định lấy chiều rộng làm chuẩn; sửa chiều cao để lấy chiều cao làm chuẩn.</p>
+					<label class="check"><input id="lockRatio" type="checkbox"> Tự tính kích thước khung theo tỷ lệ tệp</label>
+					<p class="hint">Mặc định dùng đúng chiều rộng và chiều cao đã nhập; bật tùy chọn để giữ tỷ lệ gốc của từng tệp.</p>
 				</div>
 				<div class="field">
 					<label for="mode">Cách thay đổi</label>
 					<select id="mode">
-						<option value="contain">Vừa khung (không cắt)</option>
-						<option value="cover">Lấp đầy (cắt ảnh)</option>
-						<option value="stretch">Kéo giãn đúng kích thước</option>
+						<option value="fit">Fit · vừa khung, giữ toàn bộ nội dung</option>
+						<option value="expand">Expand · phủ kín khung, có thể xén mép</option>
 					</select>
+					<p class="hint">Fit phóng nội dung lớn nhất có thể; Expand phóng ít nhất để lấp đầy khung.</p>
 				</div>
 				<div class="field">
 					<span class="field-label">Căn chỉnh nội dung</span>
@@ -170,7 +201,10 @@
 				</div>
 				<div class="field upload">
 					<label for="files">Chọn ảnh/video (có thể chọn nhiều tệp)</label>
-					<input id="files" type="file" accept="image/*,video/*" multiple>
+					<div id="dropZone" class="drop-zone">
+						<span>Kéo thả ảnh/video vào đây hoặc chọn tệp:</span>
+						<input id="files" type="file" accept="image/*,video/*" multiple>
+					</div>
 					<p class="hint">Ảnh xuất theo định dạng đã chọn. Video được xuất dưới dạng WebM và xử lý theo thời gian phát video.</p>
 				</div>
 			</div>
@@ -179,6 +213,15 @@
 				<button id="clear" type="button" disabled>Xóa danh sách</button>
 			</div>
 			<div id="status" class="status" role="status" aria-live="polite"></div>
+		</section>
+
+		<section class="panel" aria-labelledby="previewTitle">
+			<h2 id="previewTitle">Xem trước kết quả</h2>
+			<div class="preview-frame">
+				<canvas id="previewCanvas" width="1" height="1" hidden></canvas>
+				<div id="previewPlaceholder" class="preview-placeholder">Thêm tệp để xem trước kết quả resize.</div>
+			</div>
+			<p id="previewStatus" class="preview-status" role="status" aria-live="polite"></p>
 		</section>
 
 		<section class="panel" aria-labelledby="queueTitle">
@@ -196,8 +239,16 @@
 		const statusElement = $('status');
 		const processButton = $('process');
 		const clearButton = $('clear');
+		const dropZone = $('dropZone');
+		const previewCanvas = $('previewCanvas');
+		const previewContext = previewCanvas.getContext('2d');
+		const previewPlaceholder = $('previewPlaceholder');
+		const previewStatus = $('previewStatus');
 		const alignmentButtons = [...document.querySelectorAll('.alignment button')];
-		const state = { items: [], busy: false, alignX: .5, alignY: .5, ratioBasis: 'width' };
+		const state = {
+			items: [], busy: false, alignX: .5, alignY: .5, ratioBasis: 'width',
+			previewItem: null, previewSequence: 0, previewTimer: null
+		};
 		const maxDimension = 16384;
 
 		function report(message, error = false) {
@@ -216,16 +267,20 @@
 
 		function addFiles(fileList) {
 			const known = new Set(state.items.map((item) => `${item.file.name}:${item.file.size}:${item.file.lastModified}`));
+			let added = 0;
 			for (const file of fileList) {
 				const kind = fileKind(file);
 				const key = `${file.name}:${file.size}:${file.lastModified}`;
 				if (!kind || known.has(key)) continue;
 				known.add(key);
 				state.items.push({ file, kind, status: 'Chờ xử lý', output: null, outputName: '', error: '' });
+				added++;
 			}
+			if (!state.previewItem && state.items.length) state.previewItem = state.items[0];
 			renderQueue();
-			if (!state.items.length) report('Không tìm thấy tệp ảnh hoặc video được hỗ trợ.', true);
-			else report(`Đã chọn ${state.items.length} tệp.`);
+			if (!added) report('Không tìm thấy tệp mới là ảnh hoặc video được hỗ trợ.', true);
+			else report(`Đã thêm ${added} tệp · tổng cộng ${state.items.length} tệp.`);
+			schedulePreview();
 		}
 
 		function renderQueue() {
@@ -251,6 +306,17 @@
 				status.className = `row-status${item.error ? ' error' : ''}`;
 				status.textContent = item.error || item.status;
 				const action = document.createElement('td');
+				const previewButton = document.createElement('button');
+				previewButton.className = 'preview-button';
+				previewButton.type = 'button';
+				previewButton.textContent = item === state.previewItem ? 'Đang xem' : 'Xem trước';
+				previewButton.disabled = item === state.previewItem;
+				previewButton.addEventListener('click', () => {
+					state.previewItem = item;
+					renderQueue();
+					schedulePreview();
+				});
+				action.append(previewButton);
 				if (item.output) {
 					const link = document.createElement('a');
 					link.className = 'download';
@@ -305,18 +371,14 @@
 				context.fillRect(0, 0, width, height);
 			}
 			const mode = $('mode').value;
-			if (mode === 'stretch') {
-				context.drawImage(source, 0, 0, width, height);
-				return;
-			}
-			const scale = mode === 'cover'
+			const scale = mode === 'expand'
 				? Math.max(width / sourceWidth, height / sourceHeight)
 				: Math.min(width / sourceWidth, height / sourceHeight);
 			const drawWidth = width / scale;
 			const drawHeight = height / scale;
 			const sourceX = (sourceWidth - drawWidth) * state.alignX;
 			const sourceY = (sourceHeight - drawHeight) * state.alignY;
-			if (mode === 'cover') {
+			if (mode === 'expand') {
 				context.drawImage(source, sourceX, sourceY, drawWidth, drawHeight, 0, 0, width, height);
 			} else {
 				const outputWidth = sourceWidth * scale;
@@ -367,9 +429,98 @@
 
 		function waitFor(target, eventName, errorName) {
 			return new Promise((resolve, reject) => {
-				target.addEventListener(eventName, resolve, { once: true });
-				if (errorName) target.addEventListener(errorName, () => reject(new Error('Không thể đọc video này trong trình duyệt.')), { once: true });
+				const cleanup = () => {
+					target.removeEventListener(eventName, onSuccess);
+					if (errorName) target.removeEventListener(errorName, onError);
+				};
+				const onSuccess = (event) => {
+					cleanup();
+					resolve(event);
+				};
+				const onError = () => {
+					cleanup();
+					reject(new Error('Không thể đọc video này trong trình duyệt.'));
+				};
+				target.addEventListener(eventName, onSuccess, { once: true });
+				if (errorName) target.addEventListener(errorName, onError, { once: true });
 			});
+		}
+
+		function schedulePreview() {
+			clearTimeout(state.previewTimer);
+			state.previewSequence++;
+			if (!state.previewItem) {
+				previewPlaceholder.textContent = 'Thêm tệp để xem trước kết quả resize.';
+				previewCanvas.hidden = true;
+				previewPlaceholder.hidden = false;
+				previewStatus.textContent = '';
+				return;
+			}
+			previewPlaceholder.textContent = 'Đang chuẩn bị bản xem trước…';
+			previewStatus.textContent = 'Đang tạo bản xem trước…';
+			state.previewTimer = setTimeout(renderPreview, 120);
+		}
+
+		async function renderPreview() {
+			const sequence = state.previewSequence;
+			const item = state.previewItem;
+			if (!item) return;
+
+			let sourceUrl = '';
+			let bitmap = null;
+			let video = null;
+			try {
+				let source;
+				let sourceWidth;
+				let sourceHeight;
+				if (item.kind === 'image') {
+					bitmap = await createImageBitmap(item.file);
+					source = bitmap;
+					sourceWidth = bitmap.width;
+					sourceHeight = bitmap.height;
+				} else {
+					video = document.createElement('video');
+					video.preload = 'auto';
+					video.muted = true;
+					video.playsInline = true;
+					sourceUrl = URL.createObjectURL(item.file);
+					const metadata = waitFor(video, 'loadedmetadata', 'error');
+					video.src = sourceUrl;
+					await metadata;
+					if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+						await waitFor(video, 'loadeddata', 'error');
+					}
+					source = video;
+					sourceWidth = video.videoWidth;
+					sourceHeight = video.videoHeight;
+				}
+				if (sequence !== state.previewSequence) return;
+				const size = getTargetSize(sourceWidth, sourceHeight);
+				const scale = Math.min(1, 1200 / Math.max(size.width, size.height));
+				const width = Math.max(1, Math.round(size.width * scale));
+				const height = Math.max(1, Math.round(size.height * scale));
+				previewCanvas.width = width;
+				previewCanvas.height = height;
+				if (!previewContext) throw new Error('Trình duyệt không thể tạo canvas xem trước.');
+				drawResized(previewContext, source, sourceWidth, sourceHeight, width, height, item.kind === 'video');
+				previewCanvas.hidden = false;
+				previewPlaceholder.hidden = true;
+				previewStatus.textContent = `${item.file.name} · ${size.width} × ${size.height}${item.kind === 'video' ? ' · khung hình đầu tiên' : ''}`;
+			} catch (error) {
+				if (sequence !== state.previewSequence) return;
+				previewCanvas.hidden = true;
+				previewPlaceholder.hidden = false;
+				previewPlaceholder.textContent = 'Không thể tạo bản xem trước.';
+				previewStatus.textContent = error instanceof Error ? error.message : 'Không thể tạo bản xem trước.';
+			} finally {
+				if (bitmap) bitmap.close();
+				if (video) {
+					video.pause();
+					video.removeAttribute('src');
+					video.load();
+				}
+				if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+			}
 		}
 
 		function recorderType() {
@@ -502,17 +653,39 @@
 				state.alignX = Number(button.dataset.x);
 				state.alignY = Number(button.dataset.y);
 				for (const candidate of alignmentButtons) candidate.setAttribute('aria-pressed', String(candidate === button));
+				schedulePreview();
 			});
 		}
 		filesInput.addEventListener('change', () => {
 			addFiles(filesInput.files);
 			filesInput.value = '';
 		});
+		for (const eventName of ['dragenter', 'dragover']) {
+			dropZone.addEventListener(eventName, (event) => {
+				event.preventDefault();
+				dropZone.classList.add('drag-over');
+			});
+		}
+		for (const eventName of ['dragleave', 'drop']) {
+			dropZone.addEventListener(eventName, (event) => {
+				event.preventDefault();
+				dropZone.classList.remove('drag-over');
+			});
+		}
+		dropZone.addEventListener('drop', (event) => {
+			if (event.dataTransfer.files.length) addFiles(event.dataTransfer.files);
+		});
+		for (const id of ['width', 'height', 'lockRatio', 'mode', 'format', 'fillBackground', 'background']) {
+			$(id).addEventListener('input', schedulePreview);
+			$(id).addEventListener('change', schedulePreview);
+		}
 		$('process').addEventListener('click', processFiles);
 		$('clear').addEventListener('click', () => {
 			for (const item of state.items) if (item.output) URL.revokeObjectURL(item.output);
 			state.items = [];
+			state.previewItem = null;
 			renderQueue();
+			schedulePreview();
 			report('');
 		});
 		window.addEventListener('beforeunload', () => {
